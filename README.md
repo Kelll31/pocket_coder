@@ -82,8 +82,8 @@ docker compose down
 После запуска контейнера Ollama, нужно скачать модель:
 
 ```bash
-# Скачать модель qwen2.5-coder:7b
-docker exec ollama ollama pull qwen2.5-coder:7b
+# Скачать модель qwen2.5-coder:14b
+docker exec ollama ollama pull qwen2.5-coder:14b
 
 # Проверить список доступных моделей
 docker exec ollama ollama list
@@ -122,7 +122,7 @@ curl http://localhost:4000/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer sk-ollama123" \
   -d '{
-    "model": "qwen2.5-coder:7b",
+    "model": "qwen2.5-coder:14b",
     "messages": [
       {"role": "user", "content": "Напиши hello world на Python"}
     ],
@@ -136,7 +136,7 @@ curl http://localhost:4000/v1/chat/completions \
 
 - **Base URL**: `http://localhost:4000`
 - **API Key**: `sk-ollama123`
-- **Model**: `qwen2.5-coder:7b`
+- **Model**: `qwen2.5-coder:14b`
 
 ## Конфигурация
 
@@ -151,7 +151,7 @@ curl http://localhost:4000/v1/chat/completions \
 
 ### Конфигурация LiteLLM (litellm_config.yaml)
 
-- Модель: `qwen2.5-coder:7b`
+- Модель: `qwen2.5-coder:14b`
 - Эндпоинт Ollama: `http://ollama:11434`
 - Мастер-ключ: `sk-ollama123`
 
@@ -165,9 +165,9 @@ docker exec ollama ollama pull <название-модели>
 2. Добавить модель в `litellm_config.yaml`:
 ```yaml
 model_list:
-  - model_name: qwen2.5-coder:7b
+  - model_name: qwen2.5-coder:14b
     litellm_params:
-      model: ollama/qwen2.5-coder:7b
+      model: ollama/qwen2.5-coder:14b
       api_base: http://ollama:11434
       api_key: "ollama"
   - model_name: llama3.2:3b  # Новая модель
@@ -255,17 +255,17 @@ ProjectRoot/
 
 ### Рекомендуемые модели для Delphi
 
-Помимо `qwen2.5-coder:7b`, для разработки на Delphi хорошо подходят:
+Помимо `qwen2.5-coder:14b`, для разработки на Delphi хорошо подходят:
 
-1. **deepseek-coder:6.7b** - отлично понимает Object Pascal, хорош для работы с VCL
-2. **codellama:7b** - имеет хорошую поддержку Delphi
-3. **wizardcoder:7b** - хорошо справляется с генерацией компонентов
+1. **deepseek-coder:6.14b** - отлично понимает Object Pascal, хорош для работы с VCL
+2. **codellama:14b** - имеет хорошую поддержку Delphi
+3. **wizardcoder:14b** - хорошо справляется с генерацией компонентов
 
 ### Загрузка дополнительных моделей:
 ```bash
 # Для Delphi разработки рекомендуется
-docker exec ollama ollama pull deepseek-coder:6.7b
-docker exec ollama ollama pull codellama:7b
+docker exec ollama ollama pull deepseek-coder:6.14b
+docker exec ollama ollama pull codellama:14b
 ```
 
 ### Настройки для больших файлов
@@ -281,7 +281,7 @@ curl http://localhost:4000/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer sk-ollama123" \
   -d '{
-    "model": "deepseek-coder:6.7b",
+    "model": "deepseek-coder:6.14b",
     "messages": [
       {"role": "system", "content": "Ты эксперт по Delphi (Object Pascal). Следуй правилам из .clinerules."},
       {"role": "user", "content": "Создай кастомный компонент TMyButton, наследующий от TButton"}
@@ -306,7 +306,7 @@ curl http://localhost:4000/v1/chat/completions \
 - **Правила**: Следует `.clinerules-plan`
 
 ### Act Mode (Исполнитель)
-- **Модель**: `qwen2.5-coder:7b`
+- **Модель**: `qwen2.5-coder:14b`
 - **Назначение**: Быстрая реализация утвержденных планов
 - **Задачи**:
   - Написание готового к компиляции Object Pascal кода
@@ -322,11 +322,11 @@ curl http://localhost:4000/v1/chat/completions \
 ### Конфигурация моделей
 В `litellm_config.yaml` настроены обе модели:
 - `deepseek-r1:14b` - для аналитического мышления (temperature: 0.3, max_tokens: 32768)
-- `qwen2.5-coder:7b` - для генерации кода (temperature: 0.7, max_tokens: 16384)
+- `qwen2.5-coder:14b` - для генерации кода (temperature: 0.7, max_tokens: 16384)
 
 ### Использование в Cline/OpenWebUI
 - Для анализа и планирования: Выберите модель `deepseek-r1:14b`
-- Для реализации кода: Выберите модель `qwen2.5-coder:7b`
+- Для реализации кода: Выберите модель `qwen2.5-coder:14b`
 - Base URL: `http://localhost:4000`
 - API Key: `sk-ollama123`
 
@@ -337,7 +337,7 @@ curl http://localhost:4000/v1/chat/completions \
 
 # Или по отдельности
 .\deploy.ps1 -Model "deepseek-r1:14b"
-.\deploy.ps1 -Model "qwen2.5-coder:7b"
+.\deploy.ps1 -Model "qwen2.5-coder:14b"
 ```
 
 ## Лицензия

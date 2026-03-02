@@ -4,7 +4,7 @@ param(
     [switch]$Help,
     [switch]$SkipDockerCheck,
     [switch]$SkipModelDownload,
-    [string]$Model = "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
+    [string]$Model = "deepseek-r1:14b",
     [switch]$DownloadAllModels
 )
 
@@ -20,8 +20,8 @@ Parameters:
   -Help                 Show this help message
   -SkipDockerCheck      Skip Docker verification
   -SkipModelDownload    Skip downloading the model
-  -Model <model_name>   Specify model to download (default: deepseek-ai/DeepSeek-R1-Distill-Qwen-7B)
-  -DownloadAllModels    Download all models for Plan/Act architecture (qwen2.5-coder:7b and deepseek-ai/DeepSeek-R1-Distill-Qwen-7B)
+  -Model <model_name>   Specify model to download (default: deepseek-r1:14b)
+  -DownloadAllModels    Download all models for Plan/Act architecture (qwen2.5-coder:14b and deepseek-r1:14b)
 "@
     exit 0
 }
@@ -126,7 +126,7 @@ if (-not $SkipModelDownload) {
         Write-Host "   Waiting for Ollama to start (30 seconds)..." -ForegroundColor Yellow
         Start-Sleep -Seconds 30
         
-        $models = @("qwen2.5-coder:7b", "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B")
+        $models = @("qwen2.5-coder:14b", "deepseek-r1:14b")
         
         foreach ($modelToDownload in $models) {
             try {
@@ -186,7 +186,8 @@ catch {
 }
 
 try {
-    $litellmCheck = Invoke-RestMethod -Uri "http://localhost:$litellmPort/health" -ErrorAction Stop
+    $headers = @{ "Authorization" = "Bearer sk-ollama123" }
+    $litellmCheck = Invoke-RestMethod -Uri "http://localhost:$litellmPort/v1/models" -Headers $headers -ErrorAction Stop
     Write-Host "   OK: LiteLLM is available on port $litellmPort" -ForegroundColor Green
 }
 catch {
@@ -200,10 +201,10 @@ Write-Host "Cline Configuration Settings:" -ForegroundColor Yellow
 Write-Host "  Base URL:   http://localhost:$litellmPort" -ForegroundColor White
 Write-Host "  API Key:    sk-ollama123" -ForegroundColor White
 Write-Host "  Available Models:" -ForegroundColor White
-Write-Host "    - qwen2.5-coder:7b (Act mode)" -ForegroundColor White
-Write-Host "    - deepseek-ai/DeepSeek-R1-Distill-Qwen-7B (Plan mode)" -ForegroundColor White
+Write-Host "    - qwen2.5-coder:14b (Act mode)" -ForegroundColor White
+Write-Host "    - deepseek-r1:14b (Plan mode)" -ForegroundColor White
 Write-Host ""
 Write-Host "Usage for Plan/Act architecture:" -ForegroundColor Yellow
-Write-Host "  Plan mode (analysis): Use deepseek-ai/DeepSeek-R1-Distill-Qwen-7B" -ForegroundColor White
-Write-Host "  Act mode (execution): Use qwen2.5-coder:7b" -ForegroundColor White
+Write-Host "  Plan mode (analysis): Use deepseek-r1:14b" -ForegroundColor White
+Write-Host "  Act mode (execution): Use qwen2.5-coder:14b" -ForegroundColor White
 Write-Host ""

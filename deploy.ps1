@@ -4,8 +4,9 @@ param(
     [switch]$Help,
     [switch]$SkipDockerCheck,
     [switch]$SkipModelDownload,
-    [string]$Model = "deepseek-r1:14b",
-    [switch]$DownloadAllModels
+    [string]$Model = "",
+    [switch]$DownloadAllModels,
+    [switch]$Uninstall
 )
 
 if ($Help) {
@@ -20,14 +21,12 @@ Parameters:
   -Help                 Show this help message
   -SkipDockerCheck      Skip Docker verification
   -SkipModelDownload    Skip downloading the model
-  -Model <model_name>   Specify model to download (default: deepseek-r1:14b)
-  -DownloadAllModels    Download all models for Plan/Act architecture (qwen2.5-coder:14b and deepseek-r1:14b)
+  -Model <model_name>   Specify model to download
+  -DownloadAllModels    Download all models for Plan/Act architecture
+  -Uninstall            Completely remove the stack, containers, networks, and all local data
 "@
     exit 0
 }
-
-Write-Host "=== Ollama + LiteLLM Deployment ===" -ForegroundColor Cyan
-Write-Host ""
 
 # Load .env file
 if (Test-Path ".env") {
@@ -43,6 +42,49 @@ if (Test-Path ".env") {
     Write-Host "   OK: .env loaded successfully" -ForegroundColor Green
     Write-Host ""
 }
+
+# Если запрошено полное удаление
+if ($Uninstall) {
+    Write-Host "=== Uninstalling Ollama + LiteLLM Stack ===" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "1. Stopping and removing Docker containers, networks, and volumes..." -ForegroundColor Yellow
+    try {
+        docker compose down -v
+        Write-Host "   OK: Containers and volumes removed" -ForegroundColor Green
+    }
+    catch {
+        Write-Host "   Error: Failed to remove containers - $_" -ForegroundColor Red
+    }
+
+    Write-Host "2. Deleting local data directories..." -ForegroundColor Yellow
+    $directoriesToRemove = @("ollama_data", "postgres_data")
+    foreach ($dir in $directoriesToRemove) {
+        if (Test-Path $dir) {
+            try {
+                Remove-Item -Path $dir -Recurse -Force -ErrorAction Stop
+                Write-Host "   OK: Deleted directory $dir" -ForegroundColor Green
+            }
+            catch {
+                Write-Host "   Error: Could not delete $dir. It might be in use. - $_" -ForegroundColor Red
+            }
+        }
+        else {
+            Write-Host "   Info: Directory $dir does not exist, skipping." -ForegroundColor Gray
+        }
+    }
+
+    Write-Host ""
+    Write-Host "=== UNINSTALL COMPLETE ===" -ForegroundColor Cyan
+    exit 0
+}
+
+Write-Host "=== Ollama + LiteLLM Deployment ===" -ForegroundColor Cyan
+Write-Host ""
+
+# Get models from environment or use defaults
+$planModel = if ($env:PLAN_MODEL) { $env:PLAN_MODEL } else { "deepseek-r1:14b" }
+$actModel = if ($env:ACT_MODEL) { $env:ACT_MODEL } else { "qwen2.5-coder:14b" }
+if ($Model -eq "") { $Model = $planModel }
 
 function Test-CommandSuccess {
     param($ExitCode)
@@ -87,7 +129,7 @@ if (-not $SkipDockerCheck) {
 
 # 2. Create directories
 Write-Host "2. Creating project structure..." -ForegroundColor Yellow
-$directories = @("ollama_data")
+$directories = @("ollama_data", "postgres_data")
 foreach ($dir in $directories) {
     if (-not (Test-Path $dir)) {
         New-Item -ItemType Directory -Path $dir -Force | Out-Null
@@ -126,7 +168,7 @@ if (-not $SkipModelDownload) {
         Write-Host "   Waiting for Ollama to start (30 seconds)..." -ForegroundColor Yellow
         Start-Sleep -Seconds 30
         
-        $models = @("qwen2.5-coder:14b", "deepseek-r1:14b")
+        $models = @($actModel, $planModel)
         
         foreach ($modelToDownload in $models) {
             try {
@@ -201,10 +243,10 @@ Write-Host "Cline Configuration Settings:" -ForegroundColor Yellow
 Write-Host "  Base URL:   http://localhost:$litellmPort" -ForegroundColor White
 Write-Host "  API Key:    sk-ollama123" -ForegroundColor White
 Write-Host "  Available Models:" -ForegroundColor White
-Write-Host "    - qwen2.5-coder:14b (Act mode)" -ForegroundColor White
-Write-Host "    - deepseek-r1:14b (Plan mode)" -ForegroundColor White
+Write-Host "    - $actModel (Act mode)" -ForegroundColor White
+Write-Host "    - $planModel (Plan mode)" -ForegroundColor White
 Write-Host ""
 Write-Host "Usage for Plan/Act architecture:" -ForegroundColor Yellow
-Write-Host "  Plan mode (analysis): Use deepseek-r1:14b" -ForegroundColor White
-Write-Host "  Act mode (execution): Use qwen2.5-coder:14b" -ForegroundColor White
+Write-Host "  Plan mode (analysis): Use $planModel" -ForegroundColor White
+Write-Host "  Act mode (execution): Use $actModel" -ForegroundColor White
 Write-Host ""

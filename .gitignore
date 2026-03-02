@@ -3,9 +3,6 @@ litellm_data/
 ollama_data/
 postgres_data/
 
-# Environment variables
-.env
-
 # IDE files
 .vscode/
 .idea/

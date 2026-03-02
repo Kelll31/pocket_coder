@@ -4,10 +4,9 @@ model_list:
       model: ollama/qwen2.5-coder:7b
       api_base: http://ollama:11434
       api_key: "ollama"
-      max_tokens: 32768  # Увеличенный контекст для генерации полных файлов
-      temperature: 0.8   # Повышенная температура для лучшей генерации кода
+      max_tokens: 32768
+      temperature: 0.8
       top_p: 0.95
-      stop: ["end.", "end;", "end\n", "end\r\n"]  # Стоп-последовательности для Object Pascal
       
   - model_name: deepseek-coder:6.7b
     litellm_params:
@@ -22,10 +21,9 @@ model_list:
       model: ollama/deepseek-ai/DeepSeek-R1-Distill-Qwen-7B
       api_base: http://ollama:11434
       api_key: "ollama"
-      max_tokens: 32768  # Большой контекст для анализа архитектуры
-      temperature: 0.3   # Низкая температура для аналитического мышления
+      max_tokens: 32768
+      temperature: 0.3
       top_p: 0.8
-      stop: ["ПЛАН МОДИФИКАЦИИ:", "====", "---"]  # Стоп-последовательности для планов
 
 litellm_settings:
   drop_params: true
@@ -34,16 +32,15 @@ litellm_settings:
   default_temperature: 0.7
 
 general_settings:
-  master_key: "sk-ollama123"  # Простой ключ для тестирования
+  master_key: "sk-ollama123"
   completion_model: "qwen2.5-coder:7b"
   use_azure_ad: false
-  default_timeout: 1200  # Увеличенный таймаут для больших файлов Delphi
-  database_url: "postgresql://postgres:password@postgres:5432/litellm"  # Используем PostgreSQL
-  disable_user_auth: false  # Включаем простую аутентификацию
+  default_timeout: 1200
+  database_url: "postgresql://postgres:password@postgres:5432/litellm"
+  disable_user_auth: false
 
-# Настройки для работы с Ollama
 ollama_settings:
   custom_llm_provider: "ollama"
-  num_retries: 5  # Увеличенное количество попыток
-  request_timeout: 1200  # 20 минут для больших Delphi файлов
+  num_retries: 5
+  request_timeout: 1200
   max_retries: 3

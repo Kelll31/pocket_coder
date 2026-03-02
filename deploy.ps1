@@ -5,7 +5,7 @@ param(
     [switch]$SkipDockerCheck,
     [switch]$SkipModelDownload,
     [string]$Model = "",
-    [switch]$DownloadAllModels,
+    [switch]$DownloadAllModels, # Оставлен для обратной совместимости
     [switch]$Uninstall
 )
 
@@ -21,8 +21,7 @@ Parameters:
   -Help                 Show this help message
   -SkipDockerCheck      Skip Docker verification
   -SkipModelDownload    Skip downloading the model
-  -Model <model_name>   Specify model to download
-  -DownloadAllModels    Download all models for Plan/Act architecture
+  -Model <model_name>   Specify an additional model to download
   -Uninstall            Completely remove the stack, containers, networks, and all local data
 "@
     exit 0
@@ -84,7 +83,6 @@ Write-Host ""
 # Get models from environment or use defaults
 $planModel = if ($env:PLAN_MODEL) { $env:PLAN_MODEL } else { "deepseek-r1:14b" }
 $actModel = if ($env:ACT_MODEL) { $env:ACT_MODEL } else { "qwen2.5-coder:14b" }
-if ($Model -eq "") { $Model = $planModel }
 
 function Test-CommandSuccess {
     param($ExitCode)
@@ -163,54 +161,37 @@ catch {
 
 # 4. Download Model(s)
 if (-not $SkipModelDownload) {
-    if ($DownloadAllModels) {
-        Write-Host "4. Downloading all models for Plan/Act architecture..." -ForegroundColor Yellow
-        Write-Host "   Waiting for Ollama to start (30 seconds)..." -ForegroundColor Yellow
-        Start-Sleep -Seconds 30
-        
-        $models = @($actModel, $planModel)
-        
-        foreach ($modelToDownload in $models) {
-            try {
-                Write-Host "   Pulling model: $modelToDownload..." -ForegroundColor Yellow
-                docker exec ollama ollama pull $modelToDownload
-                
-                if (Test-CommandSuccess $LASTEXITCODE) {
-                    Write-Host "   OK: Model $modelToDownload downloaded successfully" -ForegroundColor Green
-                }
-                else {
-                    Write-Host "   Error downloading model $modelToDownload" -ForegroundColor Red
-                }
-            }
-            catch {
-                Write-Host "   Error: $_" -ForegroundColor Red
-            }
-        }
-        
-        Write-Host "   Listing all available models..." -ForegroundColor Yellow
-        docker exec ollama ollama list
+    Write-Host "4. Downloading models for Plan/Act architecture..." -ForegroundColor Yellow
+    Write-Host "   Waiting for Ollama to start (30 seconds)..." -ForegroundColor Yellow
+    Start-Sleep -Seconds 30
+    
+    # Всегда загружаем обе основные модели
+    $modelsToDownload = @($planModel, $actModel)
+    
+    # Если передана кастомная модель через аргумент, добавляем её в очередь
+    if ($Model -ne "" -and $Model -ne $planModel -and $Model -ne $actModel) {
+        $modelsToDownload += $Model
     }
-    else {
-        Write-Host "4. Downloading model $Model..." -ForegroundColor Yellow
-        Write-Host "   Waiting for Ollama to start (30 seconds)..." -ForegroundColor Yellow
-        Start-Sleep -Seconds 30
-        
+    
+    foreach ($modelToDownload in $modelsToDownload) {
         try {
-            Write-Host "   Pulling model..." -ForegroundColor Yellow
-            docker exec ollama ollama pull $Model
+            Write-Host "   Pulling model: $modelToDownload..." -ForegroundColor Yellow
+            docker exec ollama ollama pull $modelToDownload
             
             if (Test-CommandSuccess $LASTEXITCODE) {
-                Write-Host "   OK: Model $Model downloaded successfully" -ForegroundColor Green
-                docker exec ollama ollama list
+                Write-Host "   OK: Model $modelToDownload downloaded successfully" -ForegroundColor Green
             }
             else {
-                Write-Host "   Error downloading model" -ForegroundColor Red
+                Write-Host "   Error downloading model $modelToDownload" -ForegroundColor Red
             }
         }
         catch {
             Write-Host "   Error: $_" -ForegroundColor Red
         }
     }
+    
+    Write-Host "   Listing all available models..." -ForegroundColor Yellow
+    docker exec ollama ollama list
 }
 
 # 5. Healthcheck

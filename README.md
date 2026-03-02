@@ -132,11 +132,33 @@ curl http://localhost:4000/v1/chat/completions \
 
 ## Настройка Cline
 
-Для настройки Cline используйте следующие параметры:
+### 🛠️ Настройки для вкладки "Act Mode" (Исполнитель - Qwen)
+*Эта модель будет писать код.*
 
-- **Base URL**: `http://localhost:4000`
+- **API Provider**: OpenAI Compatible
+- **Base URL**: `http://localhost:4000/v1` (обязательно с `/v1` на конце)
 - **API Key**: `sk-ollama123`
-- **Model**: `qwen2.5-coder:14b`
+- **Model ID**: `qwen2.5-coder:14b`
+
+**В блоке MODEL CONFIGURATION:**
+- **Supports Images**: ❌ Снимите галочку (Qwen не умеет смотреть картинки, если оставить галочку, при прикреплении скриншота будет ошибка)
+- **Enable R1 messages format**: ❌ Снимите галочку
+- **Context Window Size**: `32768` (На вашем скрине 128000. Лучше поставьте 32768, как мы прописывали в конфигах, иначе Ollama может "съесть" всю оперативную память компьютера и зависнуть)
+- **Max Output Tokens**: `-1` (без ограничений)
+
+### 🧠 Настройки для вкладки "Plan Mode" (Архитектор - DeepSeek)
+*Переключитесь на вкладку Plan Mode и заполните так:*
+
+- **API Provider**: OpenAI Compatible
+- **Base URL**: `http://localhost:4000/v1`
+- **API Key**: `sk-ollama123`
+- **Model ID**: `deepseek-r1:14b`
+
+**В блоке MODEL CONFIGURATION:**
+- **Supports Images**: ❌ Снимите галочку
+- **Enable R1 messages format**: ✅ **ОБЯЗАТЕЛЬНО ПОСТАВЬТЕ ГАЛОЧКУ!** (Это супер-важная настройка специально для моделей R1. Она скажет расширению Cline прятать "размышления" модели в тегах `<think>`, чтобы они не мешали основному ответу)
+- **Context Window Size**: `32768`
+- **Max Output Tokens**: `-1`
 
 ### Визуальная настройка подключения
 

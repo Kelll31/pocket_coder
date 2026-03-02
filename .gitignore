@@ -1,0 +1,52 @@
+# Docker data directories
+litellm_data/
+ollama_data/
+postgres_data/
+
+# Environment variables
+.env
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+tmp/
+temp/
+
+# Backup files
+*.bak
+*.backup
+
+# Compiled files
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Delphi specific
+*.dcu
+*.dsk
+*.dof
+*.cfg
+*.identcache
+*.local
+*.~*
+*.res

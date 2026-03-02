@@ -177,12 +177,12 @@ curl http://localhost:4000/v1/chat/completions \
 
 ### Переменные окружения (.env)
 
-| Переменная | Значение по умолчанию | Описание |
-|------------|----------------------|----------|
-| OLLAMA_IMAGE | `ollama/ollama:latest` | Образ Ollama |
+| Переменная    | Значение по умолчанию                 | Описание      |
+| ------------- | ------------------------------------- | ------------- |
+| OLLAMA_IMAGE  | `ollama/ollama:latest`                | Образ Ollama  |
 | LITELLM_IMAGE | `ghcr.io/berriai/litellm:main-latest` | Образ LiteLLM |
-| OLLAMA_PORT | `11434` | Порт Ollama |
-| LITELLM_PORT | `4000` | Порт LiteLLM |
+| OLLAMA_PORT   | `11434`                               | Порт Ollama   |
+| LITELLM_PORT  | `4000`                                | Порт LiteLLM  |
 
 ### Конфигурация LiteLLM (litellm_config.yaml)
 

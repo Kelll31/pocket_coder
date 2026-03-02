@@ -138,6 +138,19 @@ curl http://localhost:4000/v1/chat/completions \
 - **API Key**: `sk-ollama123`
 - **Model**: `qwen2.5-coder:14b`
 
+### Визуальная настройка подключения
+
+<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 20px;">
+  <div style="flex: 1;">
+    <img src="images/plan_mode_settings.png" alt="Настройки Plan Mode в Cline" style="width: 100%; max-width: 600px; border: 1px solid #ddd; border-radius: 4px;">
+    <p style="text-align: center; font-size: 0.9em; color: #666; margin-top: 8px;">Настройки Plan Mode</p>
+  </div>
+  <div style="flex: 1;">
+    <img src="images/act_mode_settings.png" alt="Настройки Act Mode в Cline" style="width: 100%; max-width: 600px; border: 1px solid #ddd; border-radius: 4px;">
+    <p style="text-align: center; font-size: 0.9em; color: #666; margin-top: 8px;">Настройки Act Mode</p>
+  </div>
+</div>
+
 ## Конфигурация
 
 ### Переменные окружения (.env)

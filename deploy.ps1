@@ -65,6 +65,39 @@ function Test-CommandSuccess {
     return $ExitCode -eq 0
 }
 
+function New-CustomModel {
+    param(
+        [string]$TargetModel,
+        [string]$ModelfilePath,
+        [string]$ClinerulesPath,
+        [string]$BaseModel
+    )
+
+    if (Test-Path $ModelfilePath) {
+        Write-Host "   Creating custom model $TargetModel from $ModelfilePath..." -ForegroundColor Yellow
+        $content = Get-Content $ModelfilePath -Raw
+        $content | docker exec -i ollama ollama create $TargetModel -f -
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "   OK: Model $TargetModel created" -ForegroundColor Green
+        }
+        else {
+            Write-Host "   Error: Failed to create $TargetModel" -ForegroundColor Red
+        }
+    }
+    elseif (Test-Path $ClinerulesPath) {
+        Write-Host "   Warning: $ModelfilePath not found. Generating from $ClinerulesPath..." -ForegroundColor Gray
+        $rules = Get-Content $ClinerulesPath -Raw
+        $modelfile = "FROM $BaseModel`nSYSTEM `"`"`"`n$rules`n`"`"`""
+        $modelfile | docker exec -i ollama ollama create $TargetModel -f -
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "   OK: Model $TargetModel created" -ForegroundColor Green
+        }
+        else {
+            Write-Host "   Error: Failed to create $TargetModel" -ForegroundColor Red
+        }
+    }
+}
+
 # Full uninstallation logic
 if ($Uninstall) {
     Write-Host "=== Uninstalling Ollama + LiteLLM Stack ===" -ForegroundColor Yellow
@@ -172,49 +205,11 @@ if (-not $SkipModelDownload) {
         docker exec ollama ollama pull $m
     }
 
-    # Create Act model from act.Modelfile
-    if (Test-Path "act.Modelfile") {
-        Write-Host "   Creating custom model $targetAct from act.Modelfile..." -ForegroundColor Yellow
-        $content = Get-Content "act.Modelfile" -Raw
-        $content | docker exec -i ollama ollama create $targetAct -f -
-        if ($LASTEXITCODE -eq 0) {
-            Write-Host "   OK: Model $targetAct created" -ForegroundColor Green
-        }
-        else {
-            Write-Host "   Error: Failed to create $targetAct" -ForegroundColor Red
-        }
-    }
-    elseif (Test-Path ".clinerules-act") {
-        Write-Host "   Warning: act.Modelfile not found. Generating from .clinerules-act..." -ForegroundColor Gray
-        $rules = Get-Content ".clinerules-act" -Raw
-        $modelfile = "FROM $baseAct`nSYSTEM `"`"`"`n$rules`n`"`"`""
-        $modelfile | docker exec -i ollama ollama create $targetAct -f -
-        if ($LASTEXITCODE -eq 0) {
-            Write-Host "   OK: Model $targetAct created" -ForegroundColor Green
-        }
-    }
+    # Create Act model
+    New-CustomModel -TargetModel $targetAct -ModelfilePath "act.Modelfile" -ClinerulesPath ".clinerules-act" -BaseModel $baseAct
 
-    # Create Plan model from plan.Modelfile
-    if (Test-Path "plan.Modelfile") {
-        Write-Host "   Creating custom model $targetPlan from plan.Modelfile..." -ForegroundColor Yellow
-        $content = Get-Content "plan.Modelfile" -Raw
-        $content | docker exec -i ollama ollama create $targetPlan -f -
-        if ($LASTEXITCODE -eq 0) {
-            Write-Host "   OK: Model $targetPlan created" -ForegroundColor Green
-        }
-        else {
-            Write-Host "   Error: Failed to create $targetPlan" -ForegroundColor Red
-        }
-    }
-    elseif (Test-Path ".clinerules-plan") {
-        Write-Host "   Warning: plan.Modelfile not found. Generating from .clinerules-plan..." -ForegroundColor Gray
-        $rules = Get-Content ".clinerules-plan" -Raw
-        $modelfile = "FROM $basePlan`nSYSTEM `"`"`"`n$rules`n`"`"`""
-        $modelfile | docker exec -i ollama ollama create $targetPlan -f -
-        if ($LASTEXITCODE -eq 0) {
-            Write-Host "   OK: Model $targetPlan created" -ForegroundColor Green
-        }
-    }
+    # Create Plan model
+    New-CustomModel -TargetModel $targetPlan -ModelfilePath "plan.Modelfile" -ClinerulesPath ".clinerules-plan" -BaseModel $basePlan
 }
 
 # 5. Healthcheck

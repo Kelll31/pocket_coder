@@ -124,7 +124,7 @@ curl http://localhost:4000/v1/chat/completions \
   -d '{
     "model": "qwen2.5-coder:14b",
     "messages": [
-      {"role": "user", "content": "Напиши hello world на Python"}
+      {"role": "user", "content": "Напиши пример создания простого окна на Delphi VCL"}
     ],
     "temperature": 0.7
   }'
@@ -132,8 +132,8 @@ curl http://localhost:4000/v1/chat/completions \
 
 ## Настройка Cline
 
-### 🛠️ Настройки для вкладки "Act Mode" (Исполнитель - Qwen)
-*Эта модель будет писать код.*
+## 🛠️ Настройки для вкладки "Act Mode" (Исполнитель VCL - Qwen)
+*Эта модель будет писать код для Delphi VCL.*
 
 - **API Provider**: OpenAI Compatible
 - **Base URL**: `http://localhost:4000/v1` (обязательно с `/v1` на конце)
@@ -146,7 +146,7 @@ curl http://localhost:4000/v1/chat/completions \
 - **Context Window Size**: `32768` (На вашем скрине 128000. Лучше поставьте 32768, как мы прописывали в конфигах, иначе Ollama может "съесть" всю оперативную память компьютера и зависнуть)
 - **Max Output Tokens**: `-1` (без ограничений)
 
-### 🧠 Настройки для вкладки "Plan Mode" (Архитектор - DeepSeek)
+### 🧠 Настройки для вкладки "Plan Mode" (Архитектор VCL - DeepSeek)
 *Переключитесь на вкладку Plan Mode и заполните так:*
 
 - **API Provider**: OpenAI Compatible

@@ -46,7 +46,7 @@ services:
     command: --config /app/config.yaml --port 4000 --host 0.0.0.0
     environment:
       - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-password}@postgres:5432/litellm
-      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY:-sk-ollama123}
+      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY:?LITELLM_MASTER_KEY is required}
       - LITELLM_LOG=DEBUG
     networks:
       - ollama-litellm-network

@@ -46,23 +46,32 @@ create_custom_model() {
     local clinerules_path=$3
     local base_model=$4
 
+    local container_path="/tmp/$(basename "$modelfile_path")"
+
     if [ -f "$modelfile_path" ]; then
         echo -e "   \e[33mCreating custom model $target_model from $modelfile_path...\e[0m"
-        if cat "$modelfile_path" | docker exec -i ollama ollama create "$target_model" -f -; then
+        docker cp "$modelfile_path" "ollama:$container_path"
+        if docker exec ollama ollama create "$target_model" -f "$container_path"; then
             echo -e "   \e[32mOK: Model $target_model created\e[0m"
         else
             echo -e "   \e[31mError: Failed to create $target_model\e[0m"
         fi
+        docker exec ollama rm -f "$container_path"
     elif [ -f "$clinerules_path" ]; then
         echo -e "   \e[90mWarning: $modelfile_path not found. Generating from $clinerules_path...\e[0m"
         local rules
         rules=$(cat "$clinerules_path")
         local modelfile="FROM $base_model\nSYSTEM \"\"\"\n$rules\n\"\"\""
-        if echo -e "$modelfile" | docker exec -i ollama ollama create "$target_model" -f -; then
+        local temp_file=$(mktemp)
+        echo -e "$modelfile" > "$temp_file"
+        docker cp "$temp_file" "ollama:$container_path"
+        if docker exec ollama ollama create "$target_model" -f "$container_path"; then
             echo -e "   \e[32mOK: Model $target_model created\e[0m"
         else
             echo -e "   \e[31mError: Failed to create $target_model\e[0m"
         fi
+        docker exec ollama rm -f "$container_path"
+        rm -f "$temp_file"
     fi
 }
 
@@ -188,10 +197,19 @@ litellmPort="${LITELLM_PORT:-4000}"
 # Use LITELLM_MASTER_KEY directly, as it's required for security
 litellmKey="${LITELLM_MASTER_KEY}"
 
-if curl -s -f -H "Authorization: Bearer $litellmKey" "http://localhost:$litellmPort/v1/models" > /dev/null; then
-    echo -e "   \e[32mOK: LiteLLM responsive on port $litellmPort\e[0m"
-else
-    echo -e "   \e[31mError: LiteLLM not responding\e[0m"
+echo -e "   \e[33mWaiting for LiteLLM to be ready...\e[0m"
+litellm_ready=false
+for i in {1..15}; do
+    if curl -s -f -H "Authorization: Bearer $litellmKey" "http://localhost:$litellmPort/v1/models" > /dev/null; then
+        echo -e "   \e[32mOK: LiteLLM responsive on port $litellmPort\e[0m"
+        litellm_ready=true
+        break
+    fi
+    sleep 2
+done
+
+if [ "$litellm_ready" = false ]; then
+    echo -e "   \e[31mError: LiteLLM not responding after 30 seconds.\e[0m"
 fi
 
 echo -e "\n\e[36m=== DEPLOYMENT COMPLETE ===\e[0m\n"

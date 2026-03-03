@@ -73,28 +73,36 @@ function New-CustomModel {
         [string]$BaseModel
     )
 
+    $containerPath = "/tmp/$([System.IO.Path]::GetFileName($ModelfilePath))"
+
     if (Test-Path $ModelfilePath) {
         Write-Host "   Creating custom model $TargetModel from $ModelfilePath..." -ForegroundColor Yellow
-        $content = Get-Content $ModelfilePath -Raw
-        $content | docker exec -i ollama ollama create $TargetModel -f -
+        docker cp $ModelfilePath "ollama:$containerPath"
+        docker exec ollama ollama create $TargetModel -f $containerPath
         if ($LASTEXITCODE -eq 0) {
             Write-Host "   OK: Model $TargetModel created" -ForegroundColor Green
         }
         else {
             Write-Host "   Error: Failed to create $TargetModel" -ForegroundColor Red
         }
+        docker exec ollama rm -f $containerPath
     }
     elseif (Test-Path $ClinerulesPath) {
         Write-Host "   Warning: $ModelfilePath not found. Generating from $ClinerulesPath..." -ForegroundColor Gray
         $rules = Get-Content $ClinerulesPath -Raw
         $modelfile = "FROM $BaseModel`nSYSTEM `"`"`"`n$rules`n`"`"`""
-        $modelfile | docker exec -i ollama ollama create $TargetModel -f -
+        $tempFile = New-TemporaryFile
+        Set-Content -Path $tempFile.FullName -Value $modelfile -Encoding UTF8
+        docker cp $tempFile.FullName "ollama:$containerPath"
+        docker exec ollama ollama create $TargetModel -f $containerPath
         if ($LASTEXITCODE -eq 0) {
             Write-Host "   OK: Model $TargetModel created" -ForegroundColor Green
         }
         else {
             Write-Host "   Error: Failed to create $TargetModel" -ForegroundColor Red
         }
+        docker exec ollama rm -f $containerPath
+        Remove-Item -Path $tempFile.FullName -Force
     }
 }
 
@@ -217,13 +225,22 @@ Write-Host "5. Running healthchecks..." -ForegroundColor Yellow
 $litellmPort = if ($env:LITELLM_PORT) { $env:LITELLM_PORT } else { "4000" }
 $litellmKey = $env:LITELLM_MASTER_KEY
 
-try {
-    $headers = @{ "Authorization" = "Bearer $litellmKey" }
-    $check = Invoke-RestMethod -Uri "http://localhost:$litellmPort/v1/models" -Headers $headers -ErrorAction Stop
-    Write-Host "   OK: LiteLLM responsive on port $litellmPort" -ForegroundColor Green
+Write-Host "   Waiting for LiteLLM to be ready..." -ForegroundColor Yellow
+$litellmReady = $false
+for ($i = 0; $i -lt 15; $i++) {
+    try {
+        $headers = @{ "Authorization" = "Bearer $litellmKey" }
+        $check = Invoke-RestMethod -Uri "http://localhost:$litellmPort/v1/models" -Headers $headers -ErrorAction Stop
+        Write-Host "   OK: LiteLLM responsive on port $litellmPort" -ForegroundColor Green
+        $litellmReady = $true
+        break
+    } catch {
+        Start-Sleep -Seconds 2
+    }
 }
-catch {
-    Write-Host "   Error: LiteLLM not responding - $_" -ForegroundColor Red
+
+if (-not $litellmReady) {
+    Write-Host "   Error: LiteLLM not responding after 30 seconds." -ForegroundColor Red
 }
 
 Write-Host ""

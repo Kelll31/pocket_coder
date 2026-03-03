@@ -114,8 +114,22 @@ Start-Sleep -Seconds 5
 # 4. Pull Base Models and Create Custom Versions
 if (-not $SkipModelDownload) {
     Write-Host "4. Pulling base models and creating custom versions..." -ForegroundColor Yellow
-    Write-Host "   Waiting for Ollama to be ready (30 seconds)..." -ForegroundColor Yellow
-    Start-Sleep -Seconds 30
+    $ollamaPort = if ($env:OLLAMA_PORT) { $env:OLLAMA_PORT } else { "11434" }
+    Write-Host "   Waiting for Ollama to be ready..." -ForegroundColor Yellow
+    $ollamaReady = $false
+    for ($i = 0; $i -lt 15; $i++) {
+        try {
+            $null = Invoke-RestMethod -Uri "http://localhost:${ollamaPort}/api/tags" -ErrorAction Stop
+            Write-Host "   OK: Ollama is ready" -ForegroundColor Green
+            $ollamaReady = $true
+            break
+        } catch {
+            Start-Sleep -Seconds 2
+        }
+    }
+    if (-not $ollamaReady) {
+        Write-Host "   Warning: Ollama not ready after 30 seconds. Proceeding anyway..." -ForegroundColor Red
+    }
 
     $baseAct = "qwen2.5-coder:14b"
     $basePlan = "deepseek-r1:14b"
@@ -178,9 +192,10 @@ if (-not $SkipModelDownload) {
 # 5. Healthcheck
 Write-Host "5. Running healthchecks..." -ForegroundColor Yellow
 $litellmPort = if ($env:LITELLM_PORT) { $env:LITELLM_PORT } else { "4000" }
+$litellmKey = if ($env:LITELLM_MASTER_KEY) { $env:LITELLM_MASTER_KEY } else { "sk-ollama123" }
 
 try {
-    $headers = @{ "Authorization" = "Bearer sk-ollama123" }
+    $headers = @{ "Authorization" = "Bearer $litellmKey" }
     $check = Invoke-RestMethod -Uri "http://localhost:$litellmPort/v1/models" -Headers $headers -ErrorAction Stop
     Write-Host "   OK: LiteLLM responsive on port $litellmPort" -ForegroundColor Green
 }
@@ -193,7 +208,7 @@ Write-Host "=== DEPLOYMENT COMPLETE ===" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Cline Configuration (OpenAI Compatible):" -ForegroundColor Yellow
 Write-Host "  Base URL:   http://localhost:$litellmPort/v1" -ForegroundColor White
-Write-Host "  API Key:    sk-ollama123" -ForegroundColor White
+Write-Host "  API Key:    $litellmKey" -ForegroundColor White
 Write-Host "  Model Act:  $targetAct" -ForegroundColor White
 Write-Host "  Model Plan: $targetPlan" -ForegroundColor White
 Write-Host ""

@@ -37,6 +37,32 @@ EOF
     exit 0
 fi
 
+create_custom_model() {
+    local target_model=$1
+    local modelfile_path=$2
+    local clinerules_path=$3
+    local base_model=$4
+
+    if [ -f "$modelfile_path" ]; then
+        echo -e "   \e[33mCreating custom model $target_model from $modelfile_path...\e[0m"
+        if cat "$modelfile_path" | docker exec -i ollama ollama create "$target_model" -f -; then
+            echo -e "   \e[32mOK: Model $target_model created\e[0m"
+        else
+            echo -e "   \e[31mError: Failed to create $target_model\e[0m"
+        fi
+    elif [ -f "$clinerules_path" ]; then
+        echo -e "   \e[90mWarning: $modelfile_path not found. Generating from $clinerules_path...\e[0m"
+        local rules
+        rules=$(cat "$clinerules_path")
+        local modelfile="FROM $base_model\nSYSTEM \"\"\"\n$rules\n\"\"\""
+        if echo -e "$modelfile" | docker exec -i ollama ollama create "$target_model" -f -; then
+            echo -e "   \e[32mOK: Model $target_model created\e[0m"
+        else
+            echo -e "   \e[31mError: Failed to create $target_model\e[0m"
+        fi
+    fi
+}
+
 # Load environment variables from .env
 if [ -f ".env" ]; then
     echo -e "\e[33mLoading environment variables from .env...\e[0m"
@@ -124,38 +150,10 @@ if [ "$SKIP_MODEL_DOWNLOAD" = false ]; then
     done
 
     # Create Act model
-    if [ -f "act.Modelfile" ]; then
-        echo -e "   \e[33mCreating custom model $targetAct from act.Modelfile...\e[0m"
-        if cat act.Modelfile | docker exec -i ollama ollama create "$targetAct" -f -; then
-            echo -e "   \e[32mOK: Model $targetAct created\e[0m"
-        else
-            echo -e "   \e[31mError: Failed to create $targetAct\e[0m"
-        fi
-    elif [ -f ".clinerules-act" ]; then
-        echo -e "   \e[90mWarning: act.Modelfile not found. Generating from .clinerules-act...\e[0m"
-        rules=$(cat .clinerules-act)
-        modelfile="FROM $baseAct\nSYSTEM \"\"\"\n$rules\n\"\"\""
-        if echo -e "$modelfile" | docker exec -i ollama ollama create "$targetAct" -f -; then
-            echo -e "   \e[32mOK: Model $targetAct created\e[0m"
-        fi
-    fi
+    create_custom_model "$targetAct" "act.Modelfile" ".clinerules-act" "$baseAct"
 
     # Create Plan model
-    if [ -f "plan.Modelfile" ]; then
-        echo -e "   \e[33mCreating custom model $targetPlan from plan.Modelfile...\e[0m"
-        if cat plan.Modelfile | docker exec -i ollama ollama create "$targetPlan" -f -; then
-            echo -e "   \e[32mOK: Model $targetPlan created\e[0m"
-        else
-            echo -e "   \e[31mError: Failed to create $targetPlan\e[0m"
-        fi
-    elif [ -f ".clinerules-plan" ]; then
-        echo -e "   \e[90mWarning: plan.Modelfile not found. Generating from .clinerules-plan...\e[0m"
-        rules=$(cat .clinerules-plan)
-        modelfile="FROM $basePlan\nSYSTEM \"\"\"\n$rules\n\"\"\""
-        if echo -e "$modelfile" | docker exec -i ollama ollama create "$targetPlan" -f -; then
-            echo -e "   \e[32mOK: Model $targetPlan created\e[0m"
-        fi
-    fi
+    create_custom_model "$targetPlan" "plan.Modelfile" ".clinerules-plan" "$basePlan"
 fi
 
 # 5. Healthcheck

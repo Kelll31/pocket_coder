@@ -116,6 +116,19 @@ foreach ($dir in $directories) {
     }
 }
 
+# Pre-flight check for required environment variables
+Write-Host "Checking required environment variables..." -ForegroundColor Yellow
+if (-not $env:POSTGRES_PASSWORD) {
+    Write-Host "   Error: POSTGRES_PASSWORD must be set in .env" -ForegroundColor Red
+    exit 1
+}
+if (-not $env:LITELLM_MASTER_KEY) {
+    Write-Host "   Error: LITELLM_MASTER_KEY must be set in .env" -ForegroundColor Red
+    exit 1
+}
+Write-Host "   OK: Required variables are set" -ForegroundColor Green
+Write-Host ""
+
 # 3. Start Docker Compose
 Write-Host "3. Starting Docker Compose..." -ForegroundColor Yellow
 docker compose up -d

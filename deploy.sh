@@ -104,6 +104,18 @@ for dir in "ollama_data" "postgres_data"; do
     fi
 done
 
+# Pre-flight check for required environment variables
+echo -e "\e[33mChecking required environment variables...\e[0m"
+if [ -z "${POSTGRES_PASSWORD}" ]; then
+    echo -e "   \e[31mError: POSTGRES_PASSWORD must be set in .env\e[0m"
+    exit 1
+fi
+if [ -z "${LITELLM_MASTER_KEY}" ]; then
+    echo -e "   \e[31mError: LITELLM_MASTER_KEY must be set in .env\e[0m"
+    exit 1
+fi
+echo -e "   \e[32mOK: Required variables are set\e[0m\n"
+
 # 3. Start Docker Compose
 echo -e "\e[33m3. Starting Docker Compose...\e[0m"
 if docker compose up -d; then

@@ -1,16 +1,16 @@
 model_list:
-  - model_name: qwen2.5-coder:14b
+  - model_name: qwen2.5-coder:14b-act
     litellm_params:
-      model: ollama/qwen2.5-coder:14b
+      model: ollama/qwen2.5-coder:14b-act
       api_base: http://ollama:11434
       api_key: "ollama"
       max_tokens: 32768
       temperature: 0.8
       top_p: 0.95
-      
-  - model_name: deepseek-r1:14b
+
+  - model_name: deepseek-r1:14b-plan
     litellm_params:
-      model: ollama/deepseek-r1:14b
+      model: ollama/deepseek-r1:14b-plan
       api_base: http://ollama:11434
       api_key: "ollama"
       max_tokens: 32768
@@ -25,7 +25,7 @@ litellm_settings:
 
 general_settings:
   master_key: "sk-ollama123"
-  completion_model: "qwen2.5-coder:14b"
+  completion_model: "qwen2.5-coder:14b-act"
   use_azure_ad: false
   default_timeout: 1200
   database_url: "postgresql://postgres:password@postgres:5432/litellm"

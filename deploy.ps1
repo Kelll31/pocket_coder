@@ -5,7 +5,8 @@ param(
     [switch]$SkipDockerCheck,
     [switch]$SkipModelDownload,
     [string]$Model = "",
-    [switch]$Uninstall
+    [switch]$Uninstall,
+    [string]$MasterKey = ""
 )
 
 # Force UTF8 encoding for piping to prevent "no Modelfile found" errors in Ollama
@@ -30,6 +31,7 @@ Parameters:
   -SkipModelDownload    Skip downloading and creating custom models
   -Model <model_name>   Specify an additional base model to download
   -Uninstall            Completely remove the stack, containers, networks, and all local data
+  -MasterKey <key>      Specify the LiteLLM Master Key
 "@
     exit 0
 }
@@ -46,6 +48,16 @@ if (Test-Path ".env") {
     }
     Write-Host "   OK: .env loaded successfully" -ForegroundColor Green
     Write-Host ""
+}
+
+if ($MasterKey) {
+    [Environment]::SetEnvironmentVariable('LITELLM_MASTER_KEY', $MasterKey, 'Process')
+}
+
+if (-not $env:LITELLM_MASTER_KEY) {
+    Write-Host "Error: LITELLM_MASTER_KEY is not set." -ForegroundColor Red
+    Write-Host "Please set it in the .env file or pass the -MasterKey parameter for secure access." -ForegroundColor Red
+    exit 1
 }
 
 function Test-CommandSuccess {

@@ -6,6 +6,7 @@ SKIP_DOCKER_CHECK=false
 SKIP_MODEL_DOWNLOAD=false
 MODEL=""
 UNINSTALL=false
+MASTER_KEY=""
 
 # Parse arguments
 while [[ "$#" -gt 0 ]]; do
@@ -15,6 +16,7 @@ while [[ "$#" -gt 0 ]]; do
         -SkipModelDownload|--skip-model-download) SKIP_MODEL_DOWNLOAD=true; shift ;;
         -Model|--model) MODEL="$2"; shift 2 ;;
         -Uninstall|--uninstall) UNINSTALL=true; shift ;;
+        -MasterKey|--master-key) MASTER_KEY="$2"; shift 2 ;;
         *) echo "Unknown parameter passed: $1"; exit 1 ;;
     esac
 done
@@ -33,6 +35,7 @@ Parameters:
   -SkipModelDownload    Skip downloading and creating custom models
   -Model <model_name>   Specify an additional base model to download
   -Uninstall            Completely remove the stack, containers, networks, and all local data
+  -MasterKey <key>      Specify the LiteLLM Master Key
 EOF
     exit 0
 fi
@@ -44,6 +47,16 @@ if [ -f ".env" ]; then
     source .env
     set +a
     echo -e "   \e[32mOK: .env loaded successfully\e[0m\n"
+fi
+
+if [ -n "$MASTER_KEY" ]; then
+    export LITELLM_MASTER_KEY="$MASTER_KEY"
+fi
+
+if [ -z "$LITELLM_MASTER_KEY" ]; then
+    echo -e "\e[31mError: LITELLM_MASTER_KEY is not set.\e[0m"
+    echo -e "\e[31mPlease set it in the .env file or pass the -MasterKey parameter for secure access.\e[0m"
+    exit 1
 fi
 
 # Full uninstallation logic
@@ -174,7 +187,7 @@ fi
 echo -e "\e[33m5. Running healthchecks...\e[0m"
 litellmPort="${LITELLM_PORT:-4000}"
 
-# Get LITELLM_MASTER_KEY from env
+# Use LITELLM_MASTER_KEY directly, as it's required for security
 litellmKey="${LITELLM_MASTER_KEY}"
 
 if curl -s -f -H "Authorization: Bearer $litellmKey" "http://localhost:$litellmPort/v1/models" > /dev/null; then

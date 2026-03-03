@@ -7,6 +7,7 @@ SKIP_MODEL_DOWNLOAD=false
 MODEL=""
 UNINSTALL=false
 MASTER_KEY=""
+POSTGRES_PASSWORD=""
 
 # Parse arguments
 while [[ "$#" -gt 0 ]]; do
@@ -17,6 +18,7 @@ while [[ "$#" -gt 0 ]]; do
         -Model|--model) MODEL="$2"; shift 2 ;;
         -Uninstall|--uninstall) UNINSTALL=true; shift ;;
         -MasterKey|--master-key) MASTER_KEY="$2"; shift 2 ;;
+        -PostgresPassword|--postgres-password) POSTGRES_PASSWORD="$2"; shift 2 ;;
         *) echo "Unknown parameter passed: $1"; exit 1 ;;
     esac
 done
@@ -36,6 +38,7 @@ Parameters:
   -Model <model_name>   Specify an additional base model to download
   -Uninstall            Completely remove the stack, containers, networks, and all local data
   -MasterKey <key>      Specify the LiteLLM Master Key
+  -PostgresPassword <pw> Specify the Postgres Database Password
 EOF
     exit 0
 fi
@@ -81,18 +84,53 @@ if [ -f ".env" ]; then
     set -a
     source .env
     set +a
-    echo -e "   \e[32mOK: .env loaded successfully\e[0m\n"
+    echo -e "   \e[32mOK: .env loaded successfully\e[0m"
+else
+    echo -e "\e[33mCreating new .env file...\e[0m"
+    touch .env
 fi
 
+ENV_CHANGED=false
+
+# Apply overrides from parameters
 if [ -n "$MASTER_KEY" ]; then
     export LITELLM_MASTER_KEY="$MASTER_KEY"
+    ENV_CHANGED=true
+fi
+if [ -n "$POSTGRES_PASSWORD" ]; then
+    export POSTGRES_PASSWORD="$POSTGRES_PASSWORD"
+    ENV_CHANGED=true
 fi
 
+# Auto-generate if missing
 if [ -z "$LITELLM_MASTER_KEY" ]; then
-    echo -e "\e[31mError: LITELLM_MASTER_KEY is not set.\e[0m"
-    echo -e "\e[31mPlease set it in the .env file or pass the -MasterKey parameter for secure access.\e[0m"
-    exit 1
+    export LITELLM_MASTER_KEY="sk-$(openssl rand -hex 16 2>/dev/null || date +%s%N | sha256sum | head -c 32)"
+    ENV_CHANGED=true
+    echo -e "   \e[32mGenerated new LITELLM_MASTER_KEY\e[0m"
 fi
+if [ -z "$POSTGRES_PASSWORD" ]; then
+    export POSTGRES_PASSWORD="$(openssl rand -hex 16 2>/dev/null || date +%s%N | sha256sum | head -c 32)"
+    ENV_CHANGED=true
+    echo -e "   \e[32mGenerated new POSTGRES_PASSWORD\e[0m"
+fi
+
+# Save .env if changed
+if [ "$ENV_CHANGED" = true ]; then
+    # Create or replace variables in .env file
+    if grep -q "^LITELLM_MASTER_KEY=" .env; then
+        sed -i.bak "s|^LITELLM_MASTER_KEY=.*|LITELLM_MASTER_KEY=$LITELLM_MASTER_KEY|" .env && rm -f .env.bak
+    else
+        echo "LITELLM_MASTER_KEY=$LITELLM_MASTER_KEY" >> .env
+    fi
+
+    if grep -q "^POSTGRES_PASSWORD=" .env; then
+        sed -i.bak "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$POSTGRES_PASSWORD|" .env && rm -f .env.bak
+    else
+        echo "POSTGRES_PASSWORD=$POSTGRES_PASSWORD" >> .env
+    fi
+    echo -e "   \e[32mOK: .env file updated with secure credentials\e[0m"
+fi
+echo -e "\n"
 
 # Full uninstallation logic
 if [ "$UNINSTALL" = true ]; then
@@ -138,18 +176,6 @@ for dir in "ollama_data" "postgres_data"; do
         echo -e "   \e[32mOK: Directory $dir created\e[0m"
     fi
 done
-
-# Pre-flight check for required environment variables
-echo -e "\e[33mChecking required environment variables...\e[0m"
-if [ -z "${POSTGRES_PASSWORD}" ]; then
-    echo -e "   \e[31mError: POSTGRES_PASSWORD must be set in .env\e[0m"
-    exit 1
-fi
-if [ -z "${LITELLM_MASTER_KEY}" ]; then
-    echo -e "   \e[31mError: LITELLM_MASTER_KEY must be set in .env\e[0m"
-    exit 1
-fi
-echo -e "   \e[32mOK: Required variables are set\e[0m\n"
 
 # 3. Start Docker Compose
 echo -e "\e[33m3. Starting Docker Compose...\e[0m"

@@ -1,6 +1,12 @@
-# Ollama + LiteLLM Docker Compose Stack (MVP)
+# Ollama + LiteLLM Docker Compose Stack (Production)
 
-Локальное развертывание связки Ollama с поддержкой GPU и LiteLLM прокси для работы с моделями через OpenAI-совместимый API. Полностью автоматизированное развертывание с PowerShell скриптом.
+Локальное и Production развертывание связки Ollama с поддержкой GPU и LiteLLM прокси для работы с моделями через OpenAI-совместимый API. Проект оптимизирован для Windows, предлагая полностью автоматизированное развертывание через PowerShell-скрипт (`deploy.ps1`). Для пользователей Linux/macOS также доступен Bash-скрипт (`deploy.sh`).
+
+## Безопасность (Production)
+
+Для использования в production-среде необходимо задать надежные пароли и ключи в файле `.env`:
+* `POSTGRES_PASSWORD`: пароль для базы данных PostgreSQL (например: `my_strong_postgres_password`).
+* `LITELLM_MASTER_KEY`: мастер-ключ для доступа к API LiteLLM (например: `sk-my_secret_key_123`).
 
 ## Структура проекта
 
@@ -8,10 +14,12 @@
 .
 ├── docker-compose.yml      # Конфигурация Docker Compose
 ├── litellm_config.yaml     # Конфигурация LiteLLM
-├── .env                    # Переменные окружения
+├── .env                    # Переменные окружения (настройки и ключи)
 ├── README.md               # Эта инструкция
-├── deploy.ps1              # PowerShell скрипт автоматического развертывания
-└── ollama_data/            # Папка для хранения моделей (создается автоматически)
+├── deploy.ps1              # PowerShell скрипт автоматического развертывания (Windows - Основной)
+├── deploy.sh               # Bash скрипт развертывания (Linux/macOS)
+├── ollama_data/            # Папка для хранения моделей (создается автоматически)
+└── postgres_data/          # Данные PostgreSQL (создается автоматически)
 ```
 
 ## Предварительные требования
@@ -31,11 +39,11 @@ sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
 sudo systemctl restart docker
 ```
 
-## Автоматическое развертывание (PowerShell)
+## Автоматическое развертывание
 
-Для Windows пользователей доступен автоматический скрипт развертывания:
+### В среде Windows (Основной способ)
 
-### Использование PowerShell скрипта:
+Для Windows пользователей доступен автоматический скрипт развертывания `deploy.ps1`:
 
 ```powershell
 # Запуск с правами администратора (рекомендуется)
@@ -47,20 +55,42 @@ sudo systemctl restart docker
 # Пропустить проверку Docker
 .\deploy.ps1 -SkipDockerCheck
 
-# Пропустить загрузку модели
+# Пропустить загрузку моделей и создание custom моделей
 .\deploy.ps1 -SkipModelDownload
 
-# Указать другую модель
+# Указать дополнительную модель для скачивания
 .\deploy.ps1 -Model "llama3.2:3b"
+
+# Полное удаление стека и данных
+.\deploy.ps1 -Uninstall
 ```
 
-### Что делает скрипт:
-1. Проверяет наличие и работоспособность Docker
-2. Создает необходимые директории
-3. Запускает Docker Compose стек
-4. Загружает указанную модель в Ollama
-5. Проверяет работоспособность всех сервисов
-6. Выводит итоговую информацию для настройки
+### В среде Linux/macOS
+
+Аналогичный функционал реализован в Bash-скрипте `deploy.sh`:
+
+```bash
+# Сделать скрипт исполняемым (при первом запуске)
+chmod +x deploy.sh
+
+# Запуск развертывания
+./deploy.sh
+
+# Показать справку
+./deploy.sh -Help
+
+# Полное удаление стека и данных
+./deploy.sh -Uninstall
+```
+
+### Что делают скрипты:
+1. Загружают переменные окружения (включая ключи) из файла `.env`
+2. Проверяют наличие и работоспособность Docker
+3. Создают необходимые директории (`ollama_data`, `postgres_data`)
+4. Запускают Docker Compose стек
+5. Загружают базовые модели в Ollama и создают Custom Modelfiles
+6. Выполняют healthcheck сервисов (LiteLLM)
+7. Выводят итоговую информацию для настройки клиентов
 
 ## Быстрый старт (вручную)
 
@@ -117,12 +147,12 @@ http://localhost:4000
 ### Пример использования с curl:
 
 ```bash
-# Запрос к модели через LiteLLM
+# Запрос к модели через LiteLLM (замените sk-ollama123 на ваш LITELLM_MASTER_KEY из .env)
 curl http://localhost:4000/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer sk-ollama123" \
+  -H "Authorization: Bearer your_secure_litellm_master_key_here" \
   -d '{
-    "model": "qwen2.5-coder:14b",
+    "model": "qwen2.5-coder:14b-act",
     "messages": [
       {"role": "user", "content": "Напиши hello world на Python"}
     ],
@@ -132,13 +162,15 @@ curl http://localhost:4000/v1/chat/completions \
 
 ## Настройка Cline
 
+После успешного развертывания используйте ключи из файла `.env`.
+
 ### 🛠️ Настройки для вкладки "Act Mode" (Исполнитель - Qwen)
 *Эта модель будет писать код.*
 
 - **API Provider**: OpenAI Compatible
 - **Base URL**: `http://localhost:4000/v1` (обязательно с `/v1` на конце)
-- **API Key**: `sk-ollama123`
-- **Model ID**: `qwen2.5-coder:14b`
+- **API Key**: `Ваш LITELLM_MASTER_KEY из .env` (например: `your_secure_litellm_master_key_here`)
+- **Model ID**: `qwen2.5-coder:14b-act`
 
 **В блоке MODEL CONFIGURATION:**
 - **Supports Images**: ❌ Снимите галочку (Qwen не умеет смотреть картинки, если оставить галочку, при прикреплении скриншота будет ошибка)
@@ -151,8 +183,8 @@ curl http://localhost:4000/v1/chat/completions \
 
 - **API Provider**: OpenAI Compatible
 - **Base URL**: `http://localhost:4000/v1`
-- **API Key**: `sk-ollama123`
-- **Model ID**: `deepseek-r1:14b`
+- **API Key**: `Ваш LITELLM_MASTER_KEY из .env`
+- **Model ID**: `deepseek-r1:14b-plan`
 
 **В блоке MODEL CONFIGURATION:**
 - **Supports Images**: ❌ Снимите галочку
@@ -188,7 +220,8 @@ curl http://localhost:4000/v1/chat/completions \
 
 - Модель: `qwen2.5-coder:14b`
 - Эндпоинт Ollama: `http://ollama:11434`
-- Мастер-ключ: `sk-ollama123`
+- Мастер-ключ: загружается из `.env` (`LITELLM_MASTER_KEY`)
+- URL базы данных: загружается из `.env` (`DATABASE_URL`)
 
 ## Добавление новых моделей
 
@@ -314,7 +347,7 @@ docker exec ollama ollama pull codellama:14b
 # Запрос на создание компонента Delphi
 curl http://localhost:4000/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer sk-ollama123" \
+  -H "Authorization: Bearer your_secure_litellm_master_key_here" \
   -d '{
     "model": "deepseek-coder:6.14b",
     "messages": [
@@ -360,10 +393,10 @@ curl http://localhost:4000/v1/chat/completions \
 - `qwen2.5-coder:14b` - для генерации кода (temperature: 0.7, max_tokens: 16384)
 
 ### Использование в Cline/OpenWebUI
-- Для анализа и планирования: Выберите модель `deepseek-r1:14b`
-- Для реализации кода: Выберите модель `qwen2.5-coder:14b`
-- Base URL: `http://localhost:4000`
-- API Key: `sk-ollama123`
+- Для анализа и планирования: Выберите модель `deepseek-r1:14b-plan`
+- Для реализации кода: Выберите модель `qwen2.5-coder:14b-act`
+- Base URL: `http://localhost:4000/v1`
+- API Key: Ваш `LITELLM_MASTER_KEY`
 
 ### Загрузка моделей
 ```powershell

@@ -178,9 +178,10 @@ if (-not $SkipModelDownload) {
 # 5. Healthcheck
 Write-Host "5. Running healthchecks..." -ForegroundColor Yellow
 $litellmPort = if ($env:LITELLM_PORT) { $env:LITELLM_PORT } else { "4000" }
+$litellmKey = if ($env:LITELLM_MASTER_KEY) { $env:LITELLM_MASTER_KEY } else { "sk-ollama123" }
 
 try {
-    $headers = @{ "Authorization" = "Bearer sk-ollama123" }
+    $headers = @{ "Authorization" = "Bearer $litellmKey" }
     $check = Invoke-RestMethod -Uri "http://localhost:$litellmPort/v1/models" -Headers $headers -ErrorAction Stop
     Write-Host "   OK: LiteLLM responsive on port $litellmPort" -ForegroundColor Green
 }
@@ -193,7 +194,7 @@ Write-Host "=== DEPLOYMENT COMPLETE ===" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Cline Configuration (OpenAI Compatible):" -ForegroundColor Yellow
 Write-Host "  Base URL:   http://localhost:$litellmPort/v1" -ForegroundColor White
-Write-Host "  API Key:    sk-ollama123" -ForegroundColor White
+Write-Host "  API Key:    $litellmKey" -ForegroundColor White
 Write-Host "  Model Act:  $targetAct" -ForegroundColor White
 Write-Host "  Model Plan: $targetPlan" -ForegroundColor White
 Write-Host ""

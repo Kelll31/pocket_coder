@@ -5,10 +5,15 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: litellm
     volumes:
       - ./postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d litellm" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     networks:
       - ollama-litellm-network
 
@@ -21,14 +26,14 @@ services:
     volumes:
       - ./ollama_data:/root/.ollama
     environment:
-      - OLLAMA_KEEP_ALIVE=24h
+      OLLAMA_KEEP_ALIVE: "24h"
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
               count: all
-              capabilities: [gpu]
+              capabilities: [ gpu ]
     networks:
       - ollama-litellm-network
 
@@ -37,17 +42,19 @@ services:
     container_name: litellm
     restart: unless-stopped
     depends_on:
-      - postgres
-      - ollama
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_started
     ports:
       - "${LITELLM_PORT:-4000}:4000"
     volumes:
       - ./litellm_config.yaml:/app/config.yaml
     command: --config /app/config.yaml --port 4000 --host 0.0.0.0
     environment:
-      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/litellm
-      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY:?LITELLM_MASTER_KEY is required}
-      - LITELLM_LOG=DEBUG
+      DATABASE_URL: "postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/litellm"
+      LITELLM_MASTER_KEY: "${LITELLM_MASTER_KEY}"
+      LITELLM_LOG: "DEBUG"
     networks:
       - ollama-litellm-network
 

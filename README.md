@@ -134,7 +134,7 @@ curl http://localhost:4000/health
 
 # Проверить список моделей через LiteLLM
 curl http://localhost:4000/v1/models \
-  -H "Authorization: Bearer sk-ollama123"
+  -H "Authorization: Bearer <ваш_LITELLM_MASTER_KEY>"
 ```
 
 ## Использование с OpenAI-совместимыми клиентами
@@ -147,7 +147,7 @@ http://localhost:4000
 ### Пример использования с curl:
 
 ```bash
-# Запрос к модели через LiteLLM (замените sk-ollama123 на ваш LITELLM_MASTER_KEY из .env)
+# Запрос к модели через LiteLLM (замените <ваш_LITELLM_MASTER_KEY> на ваш ключ из .env)
 curl http://localhost:4000/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer your_secure_litellm_master_key_here" \

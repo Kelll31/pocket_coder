@@ -91,6 +91,18 @@ for dir in "ollama_data" "postgres_data"; do
     fi
 done
 
+# Pre-flight check for required environment variables
+echo -e "\e[33mChecking required environment variables...\e[0m"
+if [ -z "${POSTGRES_PASSWORD}" ]; then
+    echo -e "   \e[31mError: POSTGRES_PASSWORD must be set in .env\e[0m"
+    exit 1
+fi
+if [ -z "${LITELLM_MASTER_KEY}" ]; then
+    echo -e "   \e[31mError: LITELLM_MASTER_KEY must be set in .env\e[0m"
+    exit 1
+fi
+echo -e "   \e[32mOK: Required variables are set\e[0m\n"
+
 # 3. Start Docker Compose
 echo -e "\e[33m3. Starting Docker Compose...\e[0m"
 if docker compose up -d; then
@@ -162,8 +174,8 @@ fi
 echo -e "\e[33m5. Running healthchecks...\e[0m"
 litellmPort="${LITELLM_PORT:-4000}"
 
-# Get LITELLM_MASTER_KEY from env or default to sk-ollama123 if not set yet
-litellmKey="${LITELLM_MASTER_KEY:-sk-ollama123}"
+# Get LITELLM_MASTER_KEY from env
+litellmKey="${LITELLM_MASTER_KEY}"
 
 if curl -s -f -H "Authorization: Bearer $litellmKey" "http://localhost:$litellmPort/v1/models" > /dev/null; then
     echo -e "   \e[32mOK: LiteLLM responsive on port $litellmPort\e[0m"

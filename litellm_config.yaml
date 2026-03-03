@@ -24,11 +24,9 @@ litellm_settings:
   default_temperature: 0.7
 
 general_settings:
-  master_key: "os.environ/LITELLM_MASTER_KEY"
   completion_model: "qwen2.5-coder:14b-act"
   use_azure_ad: false
   default_timeout: 1200
-  database_url: "os.environ/DATABASE_URL"
   disable_user_auth: false
 
 ollama_settings:

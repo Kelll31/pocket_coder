@@ -13,6 +13,9 @@ $OutputEncoding = [System.Text.Encoding]::UTF8
 [Console]::InputEncoding = [System.Text.Encoding]::UTF8
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
+# Centralized data directory configuration
+$DataDirectories = @("ollama_data", "postgres_data")
+
 if ($Help) {
     Write-Host @"
 Ollama + LiteLLM Deployment Script
@@ -64,7 +67,7 @@ if ($Uninstall) {
     }
 
     Write-Host "2. Deleting local data directories..." -ForegroundColor Yellow
-    $directoriesToRemove = @("ollama_data", "postgres_data")
+    $directoriesToRemove = $DataDirectories
     foreach ($dir in $directoriesToRemove) {
         if (Test-Path $dir) {
             Remove-Item -Path $dir -Recurse -Force -ErrorAction SilentlyContinue
@@ -93,7 +96,7 @@ if (-not $SkipDockerCheck) {
 
 # 2. Create Directory Structure
 Write-Host "2. Creating project structure..." -ForegroundColor Yellow
-$directories = @("ollama_data", "postgres_data")
+$directories = $DataDirectories
 foreach ($dir in $directories) {
     if (-not (Test-Path $dir)) {
         New-Item -ItemType Directory -Path $dir -Force | Out-Null

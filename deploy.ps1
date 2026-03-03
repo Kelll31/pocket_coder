@@ -6,7 +6,8 @@ param(
     [switch]$SkipModelDownload,
     [string]$Model = "",
     [switch]$Uninstall,
-    [string]$MasterKey = ""
+    [string]$MasterKey = "",
+    [string]$PostgresPassword = ""
 )
 
 # Force UTF8 encoding for piping to prevent "no Modelfile found" errors in Ollama
@@ -32,33 +33,68 @@ Parameters:
   -Model <model_name>   Specify an additional base model to download
   -Uninstall            Completely remove the stack, containers, networks, and all local data
   -MasterKey <key>      Specify the LiteLLM Master Key
+  -PostgresPassword <pw> Specify the Postgres Database Password
 "@
     exit 0
 }
 
 # Load environment variables from .env
-if (Test-Path ".env") {
+$envFile = ".env"
+$envDict = @{}
+
+if (Test-Path $envFile) {
     Write-Host "Loading environment variables from .env..." -ForegroundColor Yellow
-    Get-Content ".env" | Where-Object { $_ -match '^\s*[^#]' -and $_ -match '=' } | ForEach-Object {
+    Get-Content $envFile | Where-Object { $_ -match '^\s*[^#]' -and $_ -match '=' } | ForEach-Object {
         $name, $value = $_ -split '=', 2
         $name = $name.Trim()
         $value = $value.Trim()
         $value = $value -replace '^"(.*)"$', '$1' -replace "^'(.*)'$", '$1'
-        [Environment]::SetEnvironmentVariable($name, $value, 'Process')
+        $envDict[$name] = $value
     }
     Write-Host "   OK: .env loaded successfully" -ForegroundColor Green
-    Write-Host ""
+} else {
+    Write-Host "Creating new .env file..." -ForegroundColor Yellow
 }
 
+$envChanged = $false
+
+# Apply overrides from parameters
 if ($MasterKey) {
-    [Environment]::SetEnvironmentVariable('LITELLM_MASTER_KEY', $MasterKey, 'Process')
+    $envDict['LITELLM_MASTER_KEY'] = $MasterKey
+    $envChanged = $true
+}
+if ($PostgresPassword) {
+    $envDict['POSTGRES_PASSWORD'] = $PostgresPassword
+    $envChanged = $true
 }
 
-if (-not $env:LITELLM_MASTER_KEY) {
-    Write-Host "Error: LITELLM_MASTER_KEY is not set." -ForegroundColor Red
-    Write-Host "Please set it in the .env file or pass the -MasterKey parameter for secure access." -ForegroundColor Red
-    exit 1
+# Auto-generate if missing
+if (-not $envDict.ContainsKey('LITELLM_MASTER_KEY') -or [string]::IsNullOrWhiteSpace($envDict['LITELLM_MASTER_KEY'])) {
+    $envDict['LITELLM_MASTER_KEY'] = "sk-$([guid]::NewGuid().ToString('N'))"
+    $envChanged = $true
+    Write-Host "   Generated new LITELLM_MASTER_KEY" -ForegroundColor Green
 }
+if (-not $envDict.ContainsKey('POSTGRES_PASSWORD') -or [string]::IsNullOrWhiteSpace($envDict['POSTGRES_PASSWORD'])) {
+    $envDict['POSTGRES_PASSWORD'] = [guid]::NewGuid().ToString('N')
+    $envChanged = $true
+    Write-Host "   Generated new POSTGRES_PASSWORD" -ForegroundColor Green
+}
+
+# Save .env if changed
+if ($envChanged) {
+    $envLines = @()
+    foreach ($key in $envDict.Keys) {
+        $envLines += "$key=$($envDict[$key])"
+    }
+    Set-Content -Path $envFile -Value $envLines -Encoding UTF8
+    Write-Host "   OK: .env file updated with secure credentials" -ForegroundColor Green
+}
+
+# Load into process environment
+foreach ($key in $envDict.Keys) {
+    [Environment]::SetEnvironmentVariable($key, $envDict[$key], 'Process')
+}
+Write-Host ""
 
 function Test-CommandSuccess {
     param($ExitCode)
@@ -156,19 +192,6 @@ foreach ($dir in $directories) {
         Write-Host "   OK: Directory $dir created" -ForegroundColor Green
     }
 }
-
-# Pre-flight check for required environment variables
-Write-Host "Checking required environment variables..." -ForegroundColor Yellow
-if (-not $env:POSTGRES_PASSWORD) {
-    Write-Host "   Error: POSTGRES_PASSWORD must be set in .env" -ForegroundColor Red
-    exit 1
-}
-if (-not $env:LITELLM_MASTER_KEY) {
-    Write-Host "   Error: LITELLM_MASTER_KEY must be set in .env" -ForegroundColor Red
-    exit 1
-}
-Write-Host "   OK: Required variables are set" -ForegroundColor Green
-Write-Host ""
 
 # 3. Start Docker Compose
 Write-Host "3. Starting Docker Compose..." -ForegroundColor Yellow

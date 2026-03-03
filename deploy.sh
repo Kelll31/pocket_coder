@@ -6,6 +6,7 @@ SKIP_DOCKER_CHECK=false
 SKIP_MODEL_DOWNLOAD=false
 MODEL=""
 UNINSTALL=false
+MASTER_KEY=""
 
 # Parse arguments
 while [[ "$#" -gt 0 ]]; do
@@ -15,6 +16,7 @@ while [[ "$#" -gt 0 ]]; do
         -SkipModelDownload|--skip-model-download) SKIP_MODEL_DOWNLOAD=true; shift ;;
         -Model|--model) MODEL="$2"; shift 2 ;;
         -Uninstall|--uninstall) UNINSTALL=true; shift ;;
+        -MasterKey|--master-key) MASTER_KEY="$2"; shift 2 ;;
         *) echo "Unknown parameter passed: $1"; exit 1 ;;
     esac
 done
@@ -33,6 +35,7 @@ Parameters:
   -SkipModelDownload    Skip downloading and creating custom models
   -Model <model_name>   Specify an additional base model to download
   -Uninstall            Completely remove the stack, containers, networks, and all local data
+  -MasterKey <key>      Specify the LiteLLM Master Key
 EOF
     exit 0
 fi
@@ -44,6 +47,16 @@ if [ -f ".env" ]; then
     source .env
     set +a
     echo -e "   \e[32mOK: .env loaded successfully\e[0m\n"
+fi
+
+if [ -n "$MASTER_KEY" ]; then
+    export LITELLM_MASTER_KEY="$MASTER_KEY"
+fi
+
+if [ -z "$LITELLM_MASTER_KEY" ]; then
+    echo -e "\e[31mError: LITELLM_MASTER_KEY is not set.\e[0m"
+    echo -e "\e[31mPlease set it in the .env file or pass the -MasterKey parameter for secure access.\e[0m"
+    exit 1
 fi
 
 # Full uninstallation logic
@@ -90,6 +103,18 @@ for dir in "ollama_data" "postgres_data"; do
         echo -e "   \e[32mOK: Directory $dir created\e[0m"
     fi
 done
+
+# Pre-flight check for required environment variables
+echo -e "\e[33mChecking required environment variables...\e[0m"
+if [ -z "${POSTGRES_PASSWORD}" ]; then
+    echo -e "   \e[31mError: POSTGRES_PASSWORD must be set in .env\e[0m"
+    exit 1
+fi
+if [ -z "${LITELLM_MASTER_KEY}" ]; then
+    echo -e "   \e[31mError: LITELLM_MASTER_KEY must be set in .env\e[0m"
+    exit 1
+fi
+echo -e "   \e[32mOK: Required variables are set\e[0m\n"
 
 # 3. Start Docker Compose
 echo -e "\e[33m3. Starting Docker Compose...\e[0m"
@@ -162,8 +187,8 @@ fi
 echo -e "\e[33m5. Running healthchecks...\e[0m"
 litellmPort="${LITELLM_PORT:-4000}"
 
-# Get LITELLM_MASTER_KEY from env or default to sk-ollama123 if not set yet
-litellmKey="${LITELLM_MASTER_KEY:-sk-ollama123}"
+# Use LITELLM_MASTER_KEY directly, as it's required for security
+litellmKey="${LITELLM_MASTER_KEY}"
 
 if curl -s -f -H "Authorization: Bearer $litellmKey" "http://localhost:$litellmPort/v1/models" > /dev/null; then
     echo -e "   \e[32mOK: LiteLLM responsive on port $litellmPort\e[0m"

@@ -5,7 +5,8 @@ param(
     [switch]$SkipDockerCheck,
     [switch]$SkipModelDownload,
     [string]$Model = "",
-    [switch]$Uninstall
+    [switch]$Uninstall,
+    [string]$MasterKey = ""
 )
 
 # Force UTF8 encoding for piping to prevent "no Modelfile found" errors in Ollama
@@ -30,6 +31,7 @@ Parameters:
   -SkipModelDownload    Skip downloading and creating custom models
   -Model <model_name>   Specify an additional base model to download
   -Uninstall            Completely remove the stack, containers, networks, and all local data
+  -MasterKey <key>      Specify the LiteLLM Master Key
 "@
     exit 0
 }
@@ -46,6 +48,16 @@ if (Test-Path ".env") {
     }
     Write-Host "   OK: .env loaded successfully" -ForegroundColor Green
     Write-Host ""
+}
+
+if ($MasterKey) {
+    [Environment]::SetEnvironmentVariable('LITELLM_MASTER_KEY', $MasterKey, 'Process')
+}
+
+if (-not $env:LITELLM_MASTER_KEY) {
+    Write-Host "Error: LITELLM_MASTER_KEY is not set." -ForegroundColor Red
+    Write-Host "Please set it in the .env file or pass the -MasterKey parameter for secure access." -ForegroundColor Red
+    exit 1
 }
 
 function Test-CommandSuccess {
@@ -103,6 +115,19 @@ foreach ($dir in $directories) {
         Write-Host "   OK: Directory $dir created" -ForegroundColor Green
     }
 }
+
+# Pre-flight check for required environment variables
+Write-Host "Checking required environment variables..." -ForegroundColor Yellow
+if (-not $env:POSTGRES_PASSWORD) {
+    Write-Host "   Error: POSTGRES_PASSWORD must be set in .env" -ForegroundColor Red
+    exit 1
+}
+if (-not $env:LITELLM_MASTER_KEY) {
+    Write-Host "   Error: LITELLM_MASTER_KEY must be set in .env" -ForegroundColor Red
+    exit 1
+}
+Write-Host "   OK: Required variables are set" -ForegroundColor Green
+Write-Host ""
 
 # 3. Start Docker Compose
 Write-Host "3. Starting Docker Compose..." -ForegroundColor Yellow
@@ -195,7 +220,7 @@ if (-not $SkipModelDownload) {
 # 5. Healthcheck
 Write-Host "5. Running healthchecks..." -ForegroundColor Yellow
 $litellmPort = if ($env:LITELLM_PORT) { $env:LITELLM_PORT } else { "4000" }
-$litellmKey = if ($env:LITELLM_MASTER_KEY) { $env:LITELLM_MASTER_KEY } else { "sk-ollama123" }
+$litellmKey = $env:LITELLM_MASTER_KEY
 
 try {
     $headers = @{ "Authorization" = "Bearer $litellmKey" }

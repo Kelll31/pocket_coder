@@ -5,6 +5,8 @@ param(
     [switch]$SkipDockerCheck,
     [switch]$SkipModelDownload,
     [string]$Model = "",
+    [string]$ActModel = "",
+    [string]$PlanModel = "",
     [switch]$Uninstall,
     [string]$MasterKey = "",
     [string]$PostgresPassword = ""
@@ -31,6 +33,8 @@ Parameters:
   -SkipDockerCheck      Skip Docker verification
   -SkipModelDownload    Skip downloading and creating custom models
   -Model <model_name>   Specify an additional base model to download
+  -ActModel <model>     Specify the base model for Act Mode (default: user prompt or qwen2.5-coder:7b)
+  -PlanModel <model>    Specify the base model for Plan Mode (default: user prompt or deepseek-r1:8b)
   -Uninstall            Completely remove the stack, containers, networks, and all local data
   -MasterKey <key>      Specify the LiteLLM Master Key
   -PostgresPassword <pw> Specify the Postgres Database Password
@@ -142,6 +146,55 @@ function New-CustomModel {
     }
 }
 
+function New-LiteLLMConfig {
+    param(
+        [string]$ActModel,
+        [string]$PlanModel
+    )
+
+    $configContent = @"
+model_list:
+  - model_name: $($ActModel)-act
+    litellm_params:
+      model: ollama/$($ActModel)-act
+      api_base: http://ollama:11434
+      api_key: "ollama"
+      max_tokens: 32768
+      temperature: 0.8
+      top_p: 0.95
+
+  - model_name: $($PlanModel)-plan
+    litellm_params:
+      model: ollama/$($PlanModel)-plan
+      api_base: http://ollama:11434
+      api_key: "ollama"
+      max_tokens: 32768
+      temperature: 0.3
+      top_p: 0.8
+
+litellm_settings:
+  drop_params: true
+  set_verbose: false
+  default_max_tokens: 32768
+  default_temperature: 0.7
+
+general_settings:
+  completion_model: "$($ActModel)-act"
+  use_azure_ad: false
+  default_timeout: 1200
+  disable_user_auth: false
+
+ollama_settings:
+  custom_llm_provider: "ollama"
+  num_retries: 5
+  request_timeout: 1200
+  max_retries: 3
+"@
+
+    Set-Content -Path "litellm_config.yaml" -Value $configContent -Encoding UTF8
+    Write-Host "   OK: litellm_config.yaml updated for selected models" -ForegroundColor Green
+}
+
 # Full uninstallation logic
 if ($Uninstall) {
     Write-Host "=== Uninstalling Ollama + LiteLLM Stack ===" -ForegroundColor Yellow
@@ -172,6 +225,54 @@ if ($Uninstall) {
 Write-Host "=== Deploying Ollama + LiteLLM (Custom Modelfiles) ===" -ForegroundColor Cyan
 Write-Host ""
 
+$baseAct = "qwen2.5-coder:7b"
+$basePlan = "deepseek-r1:8b"
+
+if ($SkipModelDownload) {
+    Write-Host "Model download skipped via parameter." -ForegroundColor Gray
+} else {
+    if ($ActModel -ne "" -and $PlanModel -ne "") {
+        $baseAct = $ActModel
+        $basePlan = $PlanModel
+        Write-Host "Using provided models: Act=$baseAct, Plan=$basePlan" -ForegroundColor Green
+    } else {
+        Write-Host "Select Model Configuration:" -ForegroundColor Cyan
+        Write-Host "1. 10GB VRAM Optimized (qwen2.5-coder:7b + deepseek-r1:8b) - Recommended"
+        Write-Host "2. High Performance (qwen2.5-coder:14b + deepseek-r1:14b) - Requires 16GB+ VRAM"
+        Write-Host "3. Custom Models"
+        Write-Host "4. Skip Model Download"
+
+        $choice = Read-Host "Enter your choice (1-4) [Default: 1]"
+
+        switch ($choice) {
+            "2" {
+                $baseAct = "qwen2.5-coder:14b"
+                $basePlan = "deepseek-r1:14b"
+                Write-Host "Selected High Performance models." -ForegroundColor Green
+            }
+            "3" {
+                $baseAct = Read-Host "Enter Act Model (e.g., qwen2.5-coder:7b) [Default: qwen2.5-coder:7b]"
+                if ([string]::IsNullOrWhiteSpace($baseAct)) { $baseAct = "qwen2.5-coder:7b" }
+
+                $basePlan = Read-Host "Enter Plan Model (e.g., deepseek-r1:8b) [Default: deepseek-r1:8b]"
+                if ([string]::IsNullOrWhiteSpace($basePlan)) { $basePlan = "deepseek-r1:8b" }
+
+                Write-Host "Selected Custom models: Act=$baseAct, Plan=$basePlan" -ForegroundColor Green
+            }
+            "4" {
+                $SkipModelDownload = $true
+                Write-Host "Skipping model download." -ForegroundColor Yellow
+            }
+            default {
+                $baseAct = "qwen2.5-coder:7b"
+                $basePlan = "deepseek-r1:8b"
+                Write-Host "Selected 10GB VRAM Optimized models." -ForegroundColor Green
+            }
+        }
+    }
+}
+Write-Host ""
+
 # 1. Docker Verification
 if (-not $SkipDockerCheck) {
     Write-Host "1. Checking Docker..." -ForegroundColor Yellow
@@ -193,8 +294,12 @@ foreach ($dir in $directories) {
     }
 }
 
-# 3. Start Docker Compose
-Write-Host "3. Starting Docker Compose..." -ForegroundColor Yellow
+# 3. Generate LiteLLM Config
+Write-Host "3. Generating LiteLLM Config..." -ForegroundColor Yellow
+New-LiteLLMConfig -ActModel $baseAct -PlanModel $basePlan
+
+# 4. Start Docker Compose
+Write-Host "4. Starting Docker Compose..." -ForegroundColor Yellow
 docker compose up -d
 if (-not (Test-CommandSuccess $LASTEXITCODE)) {
     Write-Host "   Error: Failed to start containers" -ForegroundColor Red
@@ -203,9 +308,9 @@ if (-not (Test-CommandSuccess $LASTEXITCODE)) {
 Write-Host "   OK: Containers started" -ForegroundColor Green
 Start-Sleep -Seconds 5
 
-# 4. Pull Base Models and Create Custom Versions
+# 5. Pull Base Models and Create Custom Versions
 if (-not $SkipModelDownload) {
-    Write-Host "4. Pulling base models and creating custom versions..." -ForegroundColor Yellow
+    Write-Host "5. Pulling base models and creating custom versions..." -ForegroundColor Yellow
     $ollamaPort = if ($env:OLLAMA_PORT) { $env:OLLAMA_PORT } else { "11434" }
     Write-Host "   Waiting for Ollama to be ready..." -ForegroundColor Yellow
     $ollamaReady = $false
@@ -223,10 +328,8 @@ if (-not $SkipModelDownload) {
         Write-Host "   Warning: Ollama not ready after 30 seconds. Proceeding anyway..." -ForegroundColor Red
     }
 
-    $baseAct = "qwen2.5-coder:14b"
-    $basePlan = "deepseek-r1:14b"
-    $targetAct = "qwen2.5-coder:14b-act"
-    $targetPlan = "deepseek-r1:14b-plan"
+    $targetAct = "${baseAct}-act"
+    $targetPlan = "${basePlan}-plan"
 
     $modelsToPull = @($baseAct, $basePlan)
     if ($Model -ne "") { $modelsToPull += $Model }
@@ -243,8 +346,8 @@ if (-not $SkipModelDownload) {
     New-CustomModel -TargetModel $targetPlan -ModelfilePath "plan.Modelfile" -ClinerulesPath ".clinerules-plan" -BaseModel $basePlan
 }
 
-# 5. Healthcheck
-Write-Host "5. Running healthchecks..." -ForegroundColor Yellow
+# 6. Healthcheck
+Write-Host "6. Running healthchecks..." -ForegroundColor Yellow
 $litellmPort = if ($env:LITELLM_PORT) { $env:LITELLM_PORT } else { "4000" }
 $litellmKey = $env:LITELLM_MASTER_KEY
 
@@ -272,6 +375,6 @@ Write-Host ""
 Write-Host "Cline Configuration (OpenAI Compatible):" -ForegroundColor Yellow
 Write-Host "  Base URL:   http://localhost:$litellmPort/v1" -ForegroundColor White
 Write-Host "  API Key:    $litellmKey" -ForegroundColor White
-Write-Host "  Model Act:  $targetAct" -ForegroundColor White
-Write-Host "  Model Plan: $targetPlan" -ForegroundColor White
+Write-Host "  Model Act:  ${baseAct}-act" -ForegroundColor White
+Write-Host "  Model Plan: ${basePlan}-plan" -ForegroundColor White
 Write-Host ""

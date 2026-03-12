@@ -61,9 +61,18 @@ sudo systemctl restart docker
 # Указать дополнительную модель для скачивания
 .\deploy.ps1 -Model "llama3.2:3b"
 
+# Задать конкретные модели без интерактивного меню
+.\deploy.ps1 -ActModel "qwen2.5-coder:14b" -PlanModel "deepseek-r1:14b"
+
 # Полное удаление стека и данных
 .\deploy.ps1 -Uninstall
 ```
+
+При запуске скрипта без параметров моделей появится **интерактивное меню** для выбора профиля:
+1. **10GB VRAM Optimized** (`qwen2.5-coder:7b` + `deepseek-r1:8b`) - *Рекомендуется для большинства видеокарт*
+2. **High Performance** (`qwen2.5-coder:14b` + `deepseek-r1:14b`) - *Требуется 16GB+ видеопамяти*
+3. **Custom Models** - *Ввод своих моделей*
+4. **Skip Model Download** - *Пропустить загрузку*
 
 ### В среде Linux/macOS
 
@@ -73,11 +82,14 @@ sudo systemctl restart docker
 # Сделать скрипт исполняемым (при первом запуске)
 chmod +x deploy.sh
 
-# Запуск развертывания
+# Запуск развертывания с интерактивным меню выбора моделей
 ./deploy.sh
 
 # Показать справку
 ./deploy.sh -Help
+
+# Задать конкретные модели без интерактивного меню
+./deploy.sh -ActModel "qwen2.5-coder:14b" -PlanModel "deepseek-r1:14b"
 
 # Полное удаление стека и данных
 ./deploy.sh -Uninstall
@@ -112,8 +124,8 @@ docker compose down
 После запуска контейнера Ollama, нужно скачать модель:
 
 ```bash
-# Скачать модель qwen2.5-coder:14b
-docker exec ollama ollama pull qwen2.5-coder:14b
+# Скачать модель qwen2.5-coder:7b
+docker exec ollama ollama pull qwen2.5-coder:7b
 
 # Проверить список доступных моделей
 docker exec ollama ollama list
@@ -152,7 +164,7 @@ curl http://localhost:4000/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer your_secure_litellm_master_key_here" \
   -d '{
-    "model": "qwen2.5-coder:14b-act",
+    "model": "qwen2.5-coder:7b-act",
     "messages": [
       {"role": "user", "content": "Напиши пример создания простого окна на Delphi VCL"}
     ],
@@ -168,7 +180,7 @@ curl http://localhost:4000/v1/chat/completions \
 - **API Provider**: OpenAI Compatible
 - **Base URL**: `http://localhost:4000/v1` (обязательно с `/v1` на конце)
 - **API Key**: `Ваш LITELLM_MASTER_KEY из .env` (например: `your_secure_litellm_master_key_here`)
-- **Model ID**: `qwen2.5-coder:14b-act`
+- **Model ID**: `qwen2.5-coder:7b-act` (или та модель, которую вы выбрали при установке)
 
 **В блоке MODEL CONFIGURATION:**
 - **Supports Images**: ❌ Снимите галочку (Qwen не умеет смотреть картинки, если оставить галочку, при прикреплении скриншота будет ошибка)
@@ -182,7 +194,7 @@ curl http://localhost:4000/v1/chat/completions \
 - **API Provider**: OpenAI Compatible
 - **Base URL**: `http://localhost:4000/v1`
 - **API Key**: `Ваш LITELLM_MASTER_KEY из .env`
-- **Model ID**: `deepseek-r1:14b-plan`
+- **Model ID**: `deepseek-r1:8b-plan` (или та модель, которую вы выбрали при установке)
 
 **В блоке MODEL CONFIGURATION:**
 - **Supports Images**: ❌ Снимите галочку
@@ -216,10 +228,12 @@ curl http://localhost:4000/v1/chat/completions \
 
 ### Конфигурация LiteLLM (litellm_config.yaml)
 
-- Модель: `qwen2.5-coder:14b`
+- Модель по умолчанию: `qwen2.5-coder:7b-act`
 - Эндпоинт Ollama: `http://ollama:11434`
 - Мастер-ключ: загружается из `.env` (`LITELLM_MASTER_KEY`)
 - URL базы данных: загружается из `.env` (`DATABASE_URL`)
+
+*Конфигурация теперь динамически генерируется скриптом развертывания на основе выбранных моделей.*
 
 ## Добавление новых моделей
 
@@ -231,9 +245,9 @@ docker exec ollama ollama pull <название-модели>
 2. Добавить модель в `litellm_config.yaml`:
 ```yaml
 model_list:
-  - model_name: qwen2.5-coder:14b
+  - model_name: qwen2.5-coder:7b-act
     litellm_params:
-      model: ollama/qwen2.5-coder:14b
+      model: ollama/qwen2.5-coder:7b-act
       api_base: http://ollama:11434
       api_key: "ollama"
   - model_name: llama3.2:3b  # Новая модель
@@ -321,7 +335,7 @@ ProjectRoot/
 
 ### Рекомендуемые модели для Delphi
 
-Помимо `qwen2.5-coder:14b`, для разработки на Delphi хорошо подходят:
+Помимо `qwen2.5-coder:7b` и `qwen2.5-coder:14b`, для разработки на Delphi хорошо подходят:
 
 1. **deepseek-coder:6.14b** - отлично понимает Object Pascal, хорош для работы с VCL
 2. **codellama:14b** - имеет хорошую поддержку Delphi
@@ -362,7 +376,7 @@ curl http://localhost:4000/v1/chat/completions \
 Проект поддерживает архитектуру разделения ролей для разработки на Delphi VCL:
 
 ### Plan Mode (Архитектор/Аналитик)
-- **Модель**: `deepseek-r1:14b`
+- **Модель**: `deepseek-r1:8b` (оптимально для 10GB VRAM) или `deepseek-r1:14b` (High Performance)
 - **Назначение**: Анализ архитектуры, выявление проблем, проектирование решений
 - **Задачи**:
   - Анализ .pas модулей и связей в .dfm
@@ -372,7 +386,7 @@ curl http://localhost:4000/v1/chat/completions \
 - **Правила**: Следует `.clinerules-plan`
 
 ### Act Mode (Исполнитель)
-- **Модель**: `qwen2.5-coder:14b`
+- **Модель**: `qwen2.5-coder:7b` (оптимально для 10GB VRAM) или `qwen2.5-coder:14b` (High Performance)
 - **Назначение**: Быстрая реализация утвержденных планов
 - **Задачи**:
   - Написание готового к компиляции Object Pascal кода
@@ -386,24 +400,21 @@ curl http://localhost:4000/v1/chat/completions \
 2. **Act Mode**: Берет утвержденный план и реализует его в виде кода
 
 ### Конфигурация моделей
-В `litellm_config.yaml` настроены обе модели:
-- `deepseek-r1:14b` - для аналитического мышления (temperature: 0.3, max_tokens: 32768)
-- `qwen2.5-coder:14b` - для генерации кода (temperature: 0.7, max_tokens: 16384)
+В `litellm_config.yaml` генерируются настройки для обеих моделей:
+- Модель Plan - для аналитического мышления (temperature: 0.3, max_tokens: 32768)
+- Модель Act - для генерации кода (temperature: 0.8, max_tokens: 32768)
 
 ### Использование в Cline/OpenWebUI
-- Для анализа и планирования: Выберите модель `deepseek-r1:14b-plan`
-- Для реализации кода: Выберите модель `qwen2.5-coder:14b-act`
+- Для анализа и планирования: Выберите модель `deepseek-r1:8b-plan` (или ту, что выбрали в меню)
+- Для реализации кода: Выберите модель `qwen2.5-coder:7b-act` (или ту, что выбрали в меню)
 - Base URL: `http://localhost:4000/v1`
 - API Key: Ваш `LITELLM_MASTER_KEY`
 
 ### Загрузка моделей
 ```powershell
-# Загрузить все модели для Plan/Act архитектуры
-.\deploy.ps1 -DownloadAllModels
-
-# Или по отдельности
-.\deploy.ps1 -Model "deepseek-r1:14b"
-.\deploy.ps1 -Model "qwen2.5-coder:14b"
+# Скрипт развертывания автоматически предложит загрузить модели.
+# Либо вы можете скачать их вручную:
+.\deploy.ps1 -ActModel "qwen2.5-coder:14b" -PlanModel "deepseek-r1:14b"
 ```
 
 ## Лицензия

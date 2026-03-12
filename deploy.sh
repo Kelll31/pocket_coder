@@ -5,6 +5,8 @@ HELP=false
 SKIP_DOCKER_CHECK=false
 SKIP_MODEL_DOWNLOAD=false
 MODEL=""
+ACT_MODEL=""
+PLAN_MODEL=""
 UNINSTALL=false
 MASTER_KEY=""
 POSTGRES_PASSWORD=""
@@ -16,6 +18,8 @@ while [[ "$#" -gt 0 ]]; do
         -SkipDockerCheck|--skip-docker-check) SKIP_DOCKER_CHECK=true; shift ;;
         -SkipModelDownload|--skip-model-download) SKIP_MODEL_DOWNLOAD=true; shift ;;
         -Model|--model) MODEL="$2"; shift 2 ;;
+        -ActModel|--act-model) ACT_MODEL="$2"; shift 2 ;;
+        -PlanModel|--plan-model) PLAN_MODEL="$2"; shift 2 ;;
         -Uninstall|--uninstall) UNINSTALL=true; shift ;;
         -MasterKey|--master-key) MASTER_KEY="$2"; shift 2 ;;
         -PostgresPassword|--postgres-password) POSTGRES_PASSWORD="$2"; shift 2 ;;
@@ -36,6 +40,8 @@ Parameters:
   -SkipDockerCheck      Skip Docker verification
   -SkipModelDownload    Skip downloading and creating custom models
   -Model <model_name>   Specify an additional base model to download
+  -ActModel <model>     Specify the base model for Act Mode (default: user prompt or qwen2.5-coder:7b)
+  -PlanModel <model>    Specify the base model for Plan Mode (default: user prompt or deepseek-r1:8b)
   -Uninstall            Completely remove the stack, containers, networks, and all local data
   -MasterKey <key>      Specify the LiteLLM Master Key
   -PostgresPassword <pw> Specify the Postgres Database Password
@@ -76,6 +82,51 @@ create_custom_model() {
         docker exec ollama rm -f "$container_path"
         rm -f "$temp_file"
     fi
+}
+
+generate_litellm_config() {
+    local act_model=$1
+    local plan_model=$2
+
+    cat << EOF > litellm_config.yaml
+model_list:
+  - model_name: ${act_model}-act
+    litellm_params:
+      model: ollama/${act_model}-act
+      api_base: http://ollama:11434
+      api_key: "ollama"
+      max_tokens: 32768
+      temperature: 0.8
+      top_p: 0.95
+
+  - model_name: ${plan_model}-plan
+    litellm_params:
+      model: ollama/${plan_model}-plan
+      api_base: http://ollama:11434
+      api_key: "ollama"
+      max_tokens: 32768
+      temperature: 0.3
+      top_p: 0.8
+
+litellm_settings:
+  drop_params: true
+  set_verbose: false
+  default_max_tokens: 32768
+  default_temperature: 0.7
+
+general_settings:
+  completion_model: "${act_model}-act"
+  use_azure_ad: false
+  default_timeout: 1200
+  disable_user_auth: false
+
+ollama_settings:
+  custom_llm_provider: "ollama"
+  num_retries: 5
+  request_timeout: 1200
+  max_retries: 3
+EOF
+    echo -e "   \e[32mOK: litellm_config.yaml updated for selected models\e[0m"
 }
 
 # Load environment variables from .env
@@ -157,6 +208,52 @@ fi
 
 echo -e "\e[36m=== Deploying Ollama + LiteLLM (Custom Modelfiles) ===\e[0m\n"
 
+baseAct="qwen2.5-coder:7b"
+basePlan="deepseek-r1:8b"
+
+if [ "$SKIP_MODEL_DOWNLOAD" = true ]; then
+    echo -e "\e[90mModel download skipped via parameter.\e[0m"
+else
+    if [ -n "$ACT_MODEL" ] && [ -n "$PLAN_MODEL" ]; then
+        baseAct="$ACT_MODEL"
+        basePlan="$PLAN_MODEL"
+        echo -e "\e[32mUsing provided models: Act=$baseAct, Plan=$basePlan\e[0m"
+    else
+        echo -e "\e[36mSelect Model Configuration:\e[0m"
+        echo "1. 10GB VRAM Optimized (qwen2.5-coder:7b + deepseek-r1:8b) - Recommended"
+        echo "2. High Performance (qwen2.5-coder:14b + deepseek-r1:14b) - Requires 16GB+ VRAM"
+        echo "3. Custom Models"
+        echo "4. Skip Model Download"
+
+        read -p "Enter your choice (1-4) [Default: 1]: " choice
+
+        case "$choice" in
+            2)
+                baseAct="qwen2.5-coder:14b"
+                basePlan="deepseek-r1:14b"
+                echo -e "\e[32mSelected High Performance models.\e[0m"
+                ;;
+            3)
+                read -p "Enter Act Model (e.g., qwen2.5-coder:7b) [Default: qwen2.5-coder:7b]: " inputAct
+                baseAct=${inputAct:-"qwen2.5-coder:7b"}
+                read -p "Enter Plan Model (e.g., deepseek-r1:8b) [Default: deepseek-r1:8b]: " inputPlan
+                basePlan=${inputPlan:-"deepseek-r1:8b"}
+                echo -e "\e[32mSelected Custom models: Act=$baseAct, Plan=$basePlan\e[0m"
+                ;;
+            4)
+                SKIP_MODEL_DOWNLOAD=true
+                echo -e "\e[33mSkipping model download.\e[0m"
+                ;;
+            *)
+                baseAct="qwen2.5-coder:7b"
+                basePlan="deepseek-r1:8b"
+                echo -e "\e[32mSelected 10GB VRAM Optimized models.\e[0m"
+                ;;
+        esac
+    fi
+fi
+echo -e "\n"
+
 # 1. Docker Verification
 if [ "$SKIP_DOCKER_CHECK" = false ]; then
     echo -e "\e[33m1. Checking Docker...\e[0m"
@@ -177,8 +274,12 @@ for dir in "ollama_data" "postgres_data"; do
     fi
 done
 
-# 3. Start Docker Compose
-echo -e "\e[33m3. Starting Docker Compose...\e[0m"
+# 3. Generate LiteLLM Config
+echo -e "\e[33m3. Generating LiteLLM Config...\e[0m"
+generate_litellm_config "$baseAct" "$basePlan"
+
+# 4. Start Docker Compose
+echo -e "\e[33m4. Starting Docker Compose...\e[0m"
 if docker compose up -d; then
     echo -e "   \e[32mOK: Containers started\e[0m"
 else
@@ -187,17 +288,14 @@ else
 fi
 sleep 5
 
-targetAct="qwen2.5-coder:14b-act"
-targetPlan="deepseek-r1:14b-plan"
+targetAct="${baseAct}-act"
+targetPlan="${basePlan}-plan"
 
-# 4. Pull Base Models and Create Custom Versions
+# 5. Pull Base Models and Create Custom Versions
 if [ "$SKIP_MODEL_DOWNLOAD" = false ]; then
-    echo -e "\e[33m4. Pulling base models and creating custom versions...\e[0m"
+    echo -e "\e[33m5. Pulling base models and creating custom versions...\e[0m"
     echo -e "   \e[33mWaiting for Ollama to be ready (30 seconds)...\e[0m"
     sleep 30
-
-    baseAct="qwen2.5-coder:14b"
-    basePlan="deepseek-r1:14b"
 
     modelsToPull=("$baseAct" "$basePlan")
     if [ -n "$MODEL" ]; then
@@ -216,8 +314,8 @@ if [ "$SKIP_MODEL_DOWNLOAD" = false ]; then
     create_custom_model "$targetPlan" "plan.Modelfile" ".clinerules-plan" "$basePlan"
 fi
 
-# 5. Healthcheck
-echo -e "\e[33m5. Running healthchecks...\e[0m"
+# 6. Healthcheck
+echo -e "\e[33m6. Running healthchecks...\e[0m"
 litellmPort="${LITELLM_PORT:-4000}"
 
 # Use LITELLM_MASTER_KEY directly, as it's required for security
